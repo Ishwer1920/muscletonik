@@ -1,0 +1,440 @@
+/* Products: CRUD against the same MongoDB collection the storefront reads.
+   Create/edit/delete here appears on the customer site on next load. */
+(async () => {
+  const previewSync = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("mt-preview") : null;
+  function notifyPreview() {
+    previewSync?.postMessage({ type: "catalog-updated" });
+  }
+
+  const content = document.getElementById("aContent");
+  content.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div><h1 class="a-page-title">Products</h1><p class="a-page-sub">Managed in MongoDB - changes show on the storefront immediately.</p></div>
+      <button class="a-btn primary" id="addProd">+ Add product</button>
+    </div>
+    <div class="a-card">
+      <div class="a-card-head">
+        <div class="a-search" style="max-width:340px;"><span></span><input id="prodSearch" placeholder="Search name, SKU, brand..."></div>
+        <span id="prodCount" style="color:var(--a-text-soft);font-weight:600;"></span>
+      </div>
+      <div class="a-table-wrap"><table class="a-table" id="prodTable"><tbody><tr><td>Loading...</td></tr></tbody></table></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;">
+        <button class="a-btn ghost" id="prodPrev">Previous</button>
+        <span id="prodPage" style="color:var(--a-text-soft);"></span>
+        <button class="a-btn ghost" id="prodNext">Next</button>
+      </div>
+    </div>`;
+
+  const me = await AdminShell.init({ active: "products", title: "Products", sub: "Commerce", requires: "products" });
+  if (!me) return;
+
+  let page = 1;
+  let search = "";
+  let totalPages = 1;
+  let lookups = { brands: [], categories: [] };
+  try { lookups = await AdminShell.api("/catalog/lookups", { method: "GET" }); } catch {}
+
+  async function load() {
+    const t = document.getElementById("prodTable");
+    try {
+      const data = await AdminShell.api(`/admin/products?page=${page}&search=${encodeURIComponent(search)}`, { method: "GET" });
+      totalPages = data.totalPages;
+      document.getElementById("prodCount").textContent = data.total + " product(s)";
+      document.getElementById("prodPage").textContent = `Page ${data.page} of ${data.totalPages}`;
+      document.getElementById("prodPrev").disabled = data.page <= 1;
+      document.getElementById("prodNext").disabled = data.page >= data.totalPages;
+      if (!data.products.length) {
+        t.innerHTML = `<tbody><tr><td class="a-empty">No products found.</td></tr></tbody>`;
+        return;
+      }
+      t.innerHTML = `
+        <thead><tr><th>Product</th><th>Brand</th><th>Category</th><th>Price</th><th>Stock</th><th>Flags</th><th>Status</th><th></th></tr></thead>
+        <tbody>${data.products.map(p => `
+          <tr>
+            <td>
+              <strong>${AdminShell.esc(p.name)}</strong><br>
+              <span style="color:var(--a-text-soft);font-size:12px;">${AdminShell.esc(p.sku)}</span>
+            </td>
+            <td>${AdminShell.esc(p.brand)}</td>
+            <td>${AdminShell.esc(p.category)}</td>
+            <td style="font-weight:700;">${AdminShell.inr(p.sellingPrice)}${p.mrp > p.sellingPrice ? `<br><span style="color:var(--a-muted);font-weight:500;font-size:12px;text-decoration:line-through;">${AdminShell.inr(p.mrp)}</span>` : ""}</td>
+            <td style="font-weight:700;">${p.stock}</td>
+            <td>${p.featured ? '<span class="badge orange">Featured</span> ' : ""}${p.deal ? '<span class="badge amber">Deal</span>' : ""}</td>
+            <td><span class="badge ${p.status === "active" ? "green" : "gray"}">${p.status}</span></td>
+            <td style="display:flex;gap:8px;">
+              <button class="a-btn ghost edit-btn" data-id="${p.id}" style="padding:7px 12px;">Edit</button>
+              <button class="a-btn ghost del-btn" data-id="${p.id}" data-name="${AdminShell.esc(p.name)}" style="padding:7px 12px;color:var(--a-red);">Delete</button>
+            </td>
+          </tr>`).join("")}</tbody>`;
+      t.querySelectorAll(".edit-btn").forEach(b => b.addEventListener("click", () => openForm(b.dataset.id)));
+      t.querySelectorAll(".del-btn").forEach(b => b.addEventListener("click", () => remove(b.dataset.id, b.dataset.name)));
+    } catch (err) {
+      t.innerHTML = `<tbody><tr><td style="color:var(--a-red);">${AdminShell.esc(err.message)}</td></tr></tbody>`;
+    }
+  }
+
+  const back = document.getElementById("prodModalBack");
+  const form = document.getElementById("prodForm");
+  let editingId = null;
+  let currentProduct = null;
+
+  function field(label, name, value = "", type = "text", attrs = "") {
+    return `<div class="a-field"><label>${label}</label><input class="a-input" name="${name}" type="${type}" value="${AdminShell.esc(value)}" ${attrs}></div>`;
+  }
+  function select(label, name, options, value) {
+    return `<div class="a-field"><label>${label}</label><select class="a-select" name="${name}">
+      ${optionsHTML(options, value)}</select></div>`;
+  }
+  function optionsHTML(options, value) {
+    return options.map(o => `<option value="${o.id}" ${o.id === value ? "selected" : ""}>${AdminShell.esc(o.name)}</option>`).join("");
+  }
+  function textarea(label, name, value = "", rows = 2) {
+    return `<div class="a-field"><label>${label}</label><textarea class="a-input" name="${name}" rows="${rows}" style="resize:vertical;">${AdminShell.esc(value)}</textarea></div>`;
+  }
+  function checkbox(label, name, checked) {
+    return `<label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;margin-right:18px;"><input type="checkbox" name="${name}" ${checked ? "checked" : ""}> ${label}</label>`;
+  }
+
+  function toTextList(list) {
+    return Array.isArray(list) ? list.join("\n") : "";
+  }
+
+  function imagePreviewHTML(images, files = []) {
+    const fileItems = files.map(file => ({ src: URL.createObjectURL(file), label: file.name, file: true }));
+    const existing = (images || []).map(src => ({ src, label: src.split("/").pop() || "Image", file: false }));
+    const all = [...existing, ...fileItems];
+    if (!all.length) {
+      return `<div class="a-empty" style="padding:28px 16px;">No images yet. Add URLs or choose files.</div>`;
+    }
+    return `
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+        ${all.map(item => `
+          <div style="border:1px solid var(--a-border);border-radius:14px;overflow:hidden;background:var(--a-surface-2);">
+            <div style="aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:#fff;">
+              <img src="${item.src}" alt="${item.label}" style="max-width:100%;max-height:100%;object-fit:contain;padding:10px;">
+            </div>
+            <div style="padding:8px 10px;font-size:11px;color:var(--a-text-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${AdminShell.esc(item.label)}</div>
+          </div>
+        `).join("")}
+      </div>`;
+  }
+
+  function renderForm(p = {}) {
+    const brandOpts = lookups.brands.length ? lookups.brands : [{ id: p.brand || "", name: p.brand || "Brand" }];
+    const catOpts = lookups.categories.length ? lookups.categories : [{ id: p.category || "", name: p.category || "Category" }];
+    currentProduct = p;
+    document.getElementById("prodModalBody").innerHTML = `
+      <div style="display:grid;grid-template-columns:1.2fr .8fr;gap:18px;">
+        <div>
+          ${field("Product name", "name", p.name || "", "text", "required")}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="a-field">
+              <label style="display:flex;justify-content:space-between;align-items:center;">Brand
+                <button type="button" class="tax-toggle" data-kind="brand" style="background:none;border:none;color:var(--a-accent,#ff7a00);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Manage</button>
+              </label>
+              <select class="a-select" name="brand" id="brandSelect">${optionsHTML(brandOpts, p.brand)}</select>
+            </div>
+            <div class="a-field">
+              <label style="display:flex;justify-content:space-between;align-items:center;">Category
+                <button type="button" class="tax-toggle" data-kind="category" style="background:none;border:none;color:var(--a-accent,#ff7a00);font-size:12px;font-weight:600;cursor:pointer;padding:0;">+ Manage</button>
+              </label>
+              <select class="a-select" name="category" id="categorySelect">${optionsHTML(catOpts, p.category)}</select>
+            </div>
+          </div>
+          <div id="taxPanel" style="display:none;margin:0 0 12px;border:1px solid var(--a-border);border-radius:12px;padding:12px;background:var(--a-surface-2);"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            ${field("Selling price Rs", "sellingPrice", p.sellingPrice ?? "", "number", "min=0 step=1 required")}
+            ${field("MRP Rs", "mrp", p.mrp ?? "", "number", "min=0 step=1")}
+            ${field("Stock", "stock", p.stock ?? 0, "number", "min=0 step=1")}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            ${field("Flavor", "flavor", p.flavor || "")}
+            ${field("Badge", "badge", p.badge || "")}
+            ${field("Accent color", "color", p.color || "#111111")}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            ${field("Protein", "protein", p.protein || "")}
+            ${field("Calories", "calories", p.calories ?? 0, "number", "min=0")}
+            ${field("Servings", "servings", p.servings ?? 0, "number", "min=0")}
+          </div>
+          ${field("Weight / Size (optional, e.g. 1kg, 250g, 60 caps)", "weight", p.weight || "")}
+          ${field("Short description", "shortDescription", p.shortDescription || "")}
+          ${textarea("Full description", "description", p.description || "", 4)}
+          ${textarea("Ingredients", "ingredients", p.ingredients || "", 3)}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            ${field("SEO title", "seoTitle", p.seoTitle || "")}
+            ${select("Status", "status", [{ id: "active", name: "Active" }, { id: "archived", name: "Archived" }], p.status || "active")}
+          </div>
+          <div style="display:flex;flex-wrap:wrap;margin-top:6px;">
+            ${checkbox("Featured", "featured", p.featured)}
+            ${checkbox("Deal", "deal", p.deal)}
+            ${checkbox("Trending", "trending", p.trending)}
+          </div>
+          <div style="margin-top:14px;border-top:1px solid var(--a-border);padding-top:14px;">
+            <h4 style="margin-bottom:10px;font-size:14px;">Media</h4>
+            ${textarea("Image URLs", "imageUrls", toTextList(p.images || []), 3)}
+            ${textarea("Gallery URLs", "galleryUrls", toTextList(p.galleryImages || []), 3)}
+            <div class="a-field">
+              <label>Upload from device</label>
+              <input class="a-input" id="prodFiles" name="images" type="file" accept="image/*" multiple>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="position:sticky;top:12px;display:grid;gap:12px;">
+            <div class="a-card" style="box-shadow:none;">
+              <div class="a-card-head"><h3>Media preview</h3></div>
+              <div class="a-card-body" id="prodMediaPreview">${imagePreviewHTML(p.images || [], [])}</div>
+            </div>
+            <div class="a-card" style="box-shadow:none;">
+              <div class="a-card-head"><h3>Current summary</h3></div>
+              <div class="a-card-body" style="display:grid;gap:8px;font-size:13px;color:var(--a-text-soft);">
+                <div><strong style="color:var(--a-text);">${AdminShell.esc(p.name || "New product")}</strong></div>
+                <div>${AdminShell.esc(p.brand || "Brand")} · ${AdminShell.esc(p.category || "Category")}</div>
+                <div>${AdminShell.inr(p.sellingPrice || 0)}${p.mrp > p.sellingPrice ? ` <span style="text-decoration:line-through;">${AdminShell.inr(p.mrp)}</span>` : ""}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="prodFormError" style="color:var(--a-red);font-size:13px;margin-top:8px;"></div>`;
+    wireMediaPreview();
+    wireTaxonomy();
+  }
+
+  // In-form manager for brands and categories. Add/delete hit the admin API,
+  // then the two dropdowns and this panel refresh in place so the product
+  // form the user is filling out is never wiped.
+  let openTaxKind = null;
+
+  async function loadLookups() {
+    try { lookups = await AdminShell.api("/admin/taxonomy", { method: "GET" }); } catch {}
+  }
+
+  function refreshSelects() {
+    ["brand", "category"].forEach(kind => {
+      const el = document.getElementById(kind === "brand" ? "brandSelect" : "categorySelect");
+      if (!el) return;
+      const list = kind === "brand" ? lookups.brands : lookups.categories;
+      const prev = el.value;
+      el.innerHTML = optionsHTML(list, prev);
+      if (!list.some(o => o.id === prev) && list[0]) el.value = list[0].id;
+    });
+  }
+
+  function renderTaxPanel(kind) {
+    const panel = document.getElementById("taxPanel");
+    if (!panel) return;
+    const items = kind === "brand" ? lookups.brands : lookups.categories;
+    const label = kind === "brand" ? "Brands" : "Categories";
+    const isBrand = kind === "brand";
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <strong style="font-size:13px;">${label}</strong>
+        <button type="button" class="tax-close a-btn ghost" style="padding:4px 10px;font-size:12px;">Close</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:230px;overflow:auto;">
+        ${items.length ? items.map(it => {
+          const mark = isBrand ? `<span style="width:30px;height:30px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:${it.logo ? "#fff" : (it.color || "#111")};border:1px solid var(--a-border);font-size:10px;font-weight:800;color:#fff;">${it.logo ? `<img src="${AdminShell.esc(it.logo)}" alt="" style="width:100%;height:100%;object-fit:contain;">` : AdminShell.esc(it.initials || "?")}</span>` : "";
+          const logoBtns = isBrand ? `
+            <label class="a-btn ghost" style="padding:4px 10px;font-size:12px;cursor:pointer;margin:0;">${it.logo ? "Change" : "Logo"}<input type="file" accept="image/*" class="tax-logo-input" data-id="${it.id}" style="display:none;"></label>
+            ${it.logo ? `<button type="button" class="tax-logo-clear a-btn ghost" data-id="${it.id}" style="padding:4px 10px;font-size:12px;">Clear</button>` : ""}` : "";
+          return `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--a-border);">
+            <span style="display:flex;align-items:center;gap:8px;min-width:0;">${mark}<span style="font-size:13px;">${AdminShell.esc(it.name)} <span style="color:var(--a-text-soft);font-size:11px;">${AdminShell.esc(it.id)}</span></span></span>
+            <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">${logoBtns}<button type="button" class="tax-del a-btn ghost" data-id="${it.id}" style="padding:4px 10px;font-size:12px;color:var(--a-red);">Delete</button></span>
+          </div>`;
+        }).join("") : `<span style="color:var(--a-text-soft);font-size:12px;">None yet.</span>`}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input class="a-input tax-new" placeholder="New ${kind} name" style="flex:1;">
+        <button type="button" class="tax-add a-btn primary" style="padding:8px 14px;">Add</button>
+      </div>
+      <div class="tax-err" style="color:var(--a-red);font-size:12px;margin-top:6px;"></div>`;
+
+    const errBox = panel.querySelector(".tax-err");
+    const input = panel.querySelector(".tax-new");
+    const showErr = msg => { if (errBox) errBox.textContent = msg; };
+
+    panel.querySelector(".tax-close").addEventListener("click", () => togglePanel(kind));
+    panel.querySelectorAll(".tax-del").forEach(b => b.addEventListener("click", () => delTax(kind, b.dataset.id, showErr)));
+    panel.querySelectorAll(".tax-logo-input").forEach(inp =>
+      inp.addEventListener("change", () => uploadBrandLogo(inp.dataset.id, inp.files && inp.files[0], showErr)));
+    panel.querySelectorAll(".tax-logo-clear").forEach(b =>
+      b.addEventListener("click", () => setBrandLogo(b.dataset.id, "", showErr)));
+    const add = () => addTax(kind, input.value, showErr, input);
+    panel.querySelector(".tax-add").addEventListener("click", add);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+  }
+
+  function togglePanel(kind) {
+    const panel = document.getElementById("taxPanel");
+    if (!panel) return;
+    if (openTaxKind === kind) {
+      panel.style.display = "none";
+      openTaxKind = null;
+      return;
+    }
+    openTaxKind = kind;
+    panel.style.display = "block";
+    renderTaxPanel(kind);
+  }
+
+  async function addTax(kind, name, showErr, input) {
+    const clean = String(name || "").trim();
+    if (!clean) { showErr("Enter a name."); return; }
+    const path = kind === "brand" ? "/admin/taxonomy/brands" : "/admin/taxonomy/categories";
+    try {
+      const data = await AdminShell.api(path, { method: "POST", body: JSON.stringify({ name: clean }) });
+      await loadLookups();
+      refreshSelects();
+      const created = kind === "brand" ? data.brand : data.category;
+      const sel = document.getElementById(kind === "brand" ? "brandSelect" : "categorySelect");
+      if (sel && created) sel.value = created.id;
+      renderTaxPanel(kind);
+      AdminShell.toast(`${kind === "brand" ? "Brand" : "Category"} added`);
+      notifyPreview();
+    } catch (err) { showErr(err.message); }
+  }
+
+  // Upload a brand logo image, then attach its URL to the brand.
+  async function uploadBrandLogo(id, file, showErr) {
+    if (!file) return;
+    try {
+      const fd = new FormData();
+      fd.append("images", file);
+      const res = await AdminShell.api("/admin/uploads/brands", { method: "POST", body: fd });
+      const url = res && res.files && res.files[0] && res.files[0].url;
+      if (!url) throw new Error("Upload failed.");
+      await setBrandLogo(id, url, showErr);
+    } catch (err) { showErr(err.message); }
+  }
+
+  // Persist (or clear, when logo is "") a brand's logo URL and refresh the UI.
+  async function setBrandLogo(id, logo, showErr) {
+    try {
+      await AdminShell.api(`/admin/taxonomy/brands/${id}`, { method: "PATCH", body: JSON.stringify({ logo }) });
+      await loadLookups();
+      refreshSelects();
+      renderTaxPanel("brand");
+      AdminShell.toast(logo ? "Logo updated" : "Logo cleared");
+      notifyPreview();
+    } catch (err) { showErr(err.message); }
+  }
+
+  async function delTax(kind, id, showErr) {
+    const path = kind === "brand" ? `/admin/taxonomy/brands/${id}` : `/admin/taxonomy/categories/${id}`;
+    try {
+      await AdminShell.api(path, { method: "DELETE" });
+      await loadLookups();
+      refreshSelects();
+      renderTaxPanel(kind);
+      AdminShell.toast(`${kind === "brand" ? "Brand" : "Category"} deleted`);
+      notifyPreview();
+    } catch (err) { showErr(err.message); }
+  }
+
+  function wireTaxonomy() {
+    openTaxKind = null;
+    document.querySelectorAll(".tax-toggle").forEach(b =>
+      b.addEventListener("click", () => togglePanel(b.dataset.kind)));
+  }
+
+  function wireMediaPreview() {
+    const files = document.getElementById("prodFiles");
+    const urls = form.querySelector('[name="imageUrls"]');
+    const gallery = form.querySelector('[name="galleryUrls"]');
+    const refresh = () => {
+      const fileList = files ? Array.from(files.files || []) : [];
+      const urlList = parseLines(urls?.value || "");
+      const galleryList = parseLines(gallery?.value || "");
+      const preview = document.getElementById("prodMediaPreview");
+      if (preview) preview.innerHTML = imagePreviewHTML([...urlList, ...galleryList], fileList);
+    };
+    files?.addEventListener("change", refresh);
+    urls?.addEventListener("input", refresh);
+    gallery?.addEventListener("input", refresh);
+  }
+
+  function parseLines(text) {
+    return String(text || "").split(/[\n,]/).map(v => v.trim()).filter(Boolean);
+  }
+
+  async function openForm(id) {
+    editingId = id || null;
+    document.getElementById("prodModalTitle").textContent = id ? "Edit product" : "Add product";
+    document.getElementById("prodFormError")?.remove();
+    if (id) {
+      try {
+        const { product } = await AdminShell.api("/admin/products/" + id, { method: "GET" });
+        renderForm(product);
+      } catch (err) { AdminShell.toast(err.message, "err"); return; }
+    } else {
+      renderForm({ images: [], galleryImages: [] });
+    }
+    back.classList.add("open");
+  }
+
+  function closeForm() {
+    back.classList.remove("open");
+    editingId = null;
+    currentProduct = null;
+  }
+
+  document.getElementById("addProd").addEventListener("click", () => openForm(null));
+  document.getElementById("prodCancel").addEventListener("click", closeForm);
+  document.getElementById("prodModalClose").addEventListener("click", closeForm);
+  back.addEventListener("click", e => { if (e.target === back) closeForm(); });
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const btn = document.getElementById("prodSave");
+    btn.disabled = true;
+    const fd = new FormData(form);
+    const payload = new FormData();
+    for (const [k, v] of fd.entries()) {
+      if (k === "featured" || k === "deal" || k === "trending") {
+        payload.set(k, v === "on" ? "true" : "false");
+      } else if (k !== "images") {
+        payload.set(k, v);
+      }
+    }
+    const fileInput = document.getElementById("prodFiles");
+    Array.from(fileInput?.files || []).forEach(file => payload.append("images", file));
+    payload.set("imageUrls", JSON.stringify(parseLines(fd.get("imageUrls") || "")));
+    payload.set("galleryUrls", JSON.stringify(parseLines(fd.get("galleryUrls") || "")));
+    ["sellingPrice", "mrp", "stock", "calories", "servings"].forEach(n => {
+      if (!payload.get(n)) payload.delete(n);
+    });
+    try {
+      const data = editingId
+        ? await AdminShell.api(`/admin/products/${editingId}`, { method: "PATCH", body: payload })
+        : await AdminShell.api("/admin/products", { method: "POST", body: payload });
+      AdminShell.toast(editingId ? "Product updated" : "Product created");
+      closeForm();
+      load();
+      notifyPreview();
+    } catch (err) {
+      const box = document.getElementById("prodFormError");
+      if (box) box.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function remove(id, name) {
+    if (!window.confirm(`Delete "${name}"? This removes it from the storefront.`)) return;
+    try {
+      await AdminShell.api("/admin/products/" + id, { method: "DELETE" });
+      AdminShell.toast("Product deleted");
+      load();
+    } catch (err) { AdminShell.toast(err.message, "err"); }
+  }
+
+  let timer;
+  document.getElementById("prodSearch").addEventListener("input", e => { clearTimeout(timer); timer = setTimeout(() => { search = e.target.value.trim(); page = 1; load(); }, 300); });
+  document.getElementById("prodPrev").addEventListener("click", () => { if (page > 1) { page--; load(); } });
+  document.getElementById("prodNext").addEventListener("click", () => { if (page < totalPages) { page++; load(); } });
+
+  load();
+})();

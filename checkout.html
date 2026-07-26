@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout - Muscle Tonik</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+<div class="page-head">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / <a href="cart.html">Cart</a> / <span>Checkout</span></div>
+    <h1>Secure Checkout</h1>
+  </div>
+</div>
+<main class="section-tight">
+  <div class="container">
+    <div id="checkoutMessage" class="mt-alert mt-alert-error" hidden></div>
+    <div class="checkout-layout">
+      <div>
+        <div class="checkout-steps">
+          <div class="active">Address</div>
+          <div class="active">Review &amp; Pay</div>
+          <div>Confirmation</div>
+        </div>
+        <div class="card-box">
+          <h3>Shipping Address</h3>
+          <form id="checkoutForm" novalidate>
+            <div class="field"><label for="fullName">Full Name</label><input id="fullName" name="fullName" autocomplete="name" required></div>
+            <div class="field"><label for="phone">Phone Number</label><input id="phone" name="phone" inputmode="tel" autocomplete="tel" required></div>
+            <div class="field"><label for="line1">Address Line 1</label><input id="line1" name="line1" autocomplete="address-line1" required></div>
+            <div class="field"><label for="line2">Address Line 2</label><input id="line2" name="line2" autocomplete="address-line2"></div>
+            <div class="field"><label for="city">City</label><input id="city" name="city" autocomplete="address-level2" required></div>
+            <div class="field"><label for="state">State</label><input id="state" name="state" autocomplete="address-level1" required></div>
+            <div class="field"><label for="postalCode">Postal Code</label><input id="postalCode" name="postalCode" inputmode="numeric" autocomplete="postal-code" required></div>
+            <div class="field"><label for="couponCode">Coupon Code</label><input id="couponCode" name="couponCode" placeholder="TONIK10"></div>
+
+            <fieldset class="co-pay-methods" id="paymentMethods">
+              <legend>Payment Method</legend>
+              <label class="co-pay-method">
+                <input type="radio" name="paymentMode" value="online" checked>
+                <span class="co-pay-method-body">
+                  <span class="co-pay-method-title">Pay Online</span>
+                  <span class="co-pay-method-desc">Pay the full amount now via UPI, card, or netbanking.</span>
+                </span>
+              </label>
+              <label class="co-pay-method">
+                <input type="radio" name="paymentMode" value="cod">
+                <span class="co-pay-method-body">
+                  <span class="co-pay-method-title">Cash on Delivery</span>
+                  <span class="co-pay-method-desc" id="codDesc">Pay 20% online now to confirm, the rest in cash on delivery.</span>
+                </span>
+              </label>
+            </fieldset>
+
+            <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px;">Review &amp; Continue</button>
+            <p class="checkout-secure-note">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              You'll review your order before paying securely via Razorpay.
+            </p>
+          </form>
+        </div>
+      </div>
+
+      <aside class="summary-box" id="checkoutSummary" aria-label="Order summary">
+        <div class="co-summary-head">
+          <h3>Order Summary</h3>
+          <span class="co-count" id="checkoutCount"></span>
+        </div>
+        <div class="co-items" id="checkoutItems"></div>
+        <div class="co-totals" id="checkoutTotals"></div>
+      </aside>
+    </div>
+  </div>
+</main>
+<footer class="site" id="site-footer"></footer>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/checkout/utils.js"></script>
+<script src="js/checkout/storage.js"></script>
+<script src="js/checkout/validation.js"></script>
+<script src="js/checkout/cart.js"></script>
+<script src="js/checkout/payment.js"></script>
+<script src="js/checkout/ui.js"></script>
+<script src="js/checkout/checkout.js"></script>
+</body>
+</html>

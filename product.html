@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product - Muscle Tonik</title>
+<meta name="description" content="View product details, pricing, ratings and similar products at Muscle Tonik.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<div class="page-head">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / <a href="marketplace.html">Products</a> / <a id="breadcrumbCat" href="marketplace.html">Category</a></div>
+  </div>
+</div>
+
+<main class="section-tight" id="pdRoot">
+  <div class="container">
+    <div class="pd-layout">
+      <div class="pd-gallery">
+        <div class="main-img" id="mainImg"></div>
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+
+      <div class="pd-info">
+        <a class="brand" id="pdBrand" href="#"></a>
+        <h1 id="pdTitle"></h1>
+        <div class="pd-size" id="pdSize" hidden></div>
+        <div class="stars-row" id="pdStars"></div>
+        <div class="price-row">
+          <span class="now" id="pdNow"></span>
+          <span class="was" id="pdWas"></span>
+          <span class="badge badge-orange" id="pdOff"></span>
+        </div>
+        <div class="pd-offers">
+          <ul style="list-style:none;padding:0;margin:0;">
+            <li>✓ Free delivery on orders over Rs 599</li>
+            <li>✓ Pay by UPI and get an extra 2% cashback</li>
+            <li>✓ 7-day no-questions return on unopened products</li>
+          </ul>
+        </div>
+        <div class="field" id="flavorField" style="margin-top:18px;" hidden>
+          <label>Flavour<span id="flavorPicked" class="flavor-picked"></span></label>
+          <div id="flavorOptions" class="flavor-options"></div>
+        </div>
+        <div class="qty-row">
+          <div class="qty-box">
+            <button onclick="changeQty(-1)" aria-label="Decrease quantity">-</button>
+            <span id="qtyVal">1</span>
+            <button onclick="changeQty(1)" aria-label="Increase quantity">+</button>
+          </div>
+          <button class="btn-icon" id="pdWishBtn" onclick="toggleCurrentWishlist()" aria-label="Toggle wishlist">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+          </button>
+        </div>
+        <div class="pd-cta-row">
+          <button class="btn btn-dark" onclick="addCurrentToCart()">Add to Cart</button>
+          <button class="btn btn-primary" onclick="buyNow()">Buy Now</button>
+        </div>
+
+        <div class="pd-tabs">
+          <button class="active" data-tab="desc" onclick="switchTab('desc')">Description</button>
+          <button data-tab="benefits" onclick="switchTab('benefits')">Benefits</button>
+          <button data-tab="ingredients" onclick="switchTab('ingredients')">Ingredients</button>
+          <button data-tab="reviews" onclick="switchTab('reviews')">Reviews</button>
+          <button data-tab="faq" onclick="switchTab('faq')">FAQs</button>
+        </div>
+        <div class="pd-tab-panel active" id="tab-desc"><p id="pdDesc"></p></div>
+        <div class="pd-tab-panel" id="tab-benefits"><div id="pdBenefits"></div></div>
+        <div class="pd-tab-panel" id="tab-ingredients"><p id="pdIngredients"></p></div>
+        <div class="pd-tab-panel" id="tab-reviews"><div id="pdReviews"></div></div>
+        <div class="pd-tab-panel" id="tab-faq"><div id="pdFaq"></div></div>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="sec-head">
+        <div><span class="eyebrow">You may also like</span><h2>Similar Products</h2></div>
+      </div>
+      <div class="prod-grid" id="relatedGrid"></div>
+    </section>
+  </div>
+</main>
+
+<div class="sticky-buy">
+  <div>
+    <div style="font-size:12.5px;color:var(--text-light);" id="stickyName"></div>
+    <div style="font-weight:800;font-family:'Poppins',sans-serif;" id="stickyPrice"></div>
+  </div>
+  <button class="btn btn-primary" onclick="buyNow()">Buy Now</button>
+</div>
+
+<footer class="site" id="site-footer"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/products.js"></script>
+</body>
+</html>

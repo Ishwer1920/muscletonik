@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coupons · Muscle Tonik Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body class="admin">
+<div class="admin-layout">
+  <div class="a-backdrop"></div>
+  <aside class="a-sidebar" id="aSidebar"></aside>
+  <div class="a-main">
+    <header class="a-topbar" id="aTopbar"></header>
+    <div class="a-content" id="aContent"></div>
+  </div>
+</div>
+<div class="a-modal-back" id="couponModalBack">
+  <div class="a-modal" style="max-width:720px;">
+    <div class="a-modal-head"><span id="couponModalTitle">Coupon</span><button class="a-icon-btn" id="couponModalClose" style="border:none;">×</button></div>
+    <form id="couponForm">
+      <div class="a-modal-body" id="couponModalBody"></div>
+      <div class="a-modal-foot">
+        <button type="button" class="a-btn ghost" id="couponCancel">Cancel</button>
+        <button type="submit" class="a-btn primary" id="couponSave">Save coupon</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script src="/js/admin/admin-core.js"></script>
+<script src="/js/admin/coupons.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300" role="img" aria-label="Muscle Tonik plan">
+  <rect width="300" height="300" fill="#111111"/>
+  <rect x="86" y="52" width="128" height="164" rx="10" fill="#ffffff"/>
+  <rect x="104" y="80" width="92" height="9" rx="4.5" fill="#ff7a00"/>
+  <rect x="104" y="104" width="72" height="7" rx="3.5" fill="#d8d8d8"/>
+  <rect x="104" y="122" width="92" height="7" rx="3.5" fill="#d8d8d8"/>
+  <rect x="104" y="140" width="60" height="7" rx="3.5" fill="#d8d8d8"/>
+  <rect x="104" y="164" width="92" height="7" rx="3.5" fill="#d8d8d8"/>
+  <rect x="104" y="182" width="76" height="7" rx="3.5" fill="#d8d8d8"/>
+  <path d="M150 232v34M133 240v18M167 240v18M120 249h60" stroke="#ff7a00" stroke-width="9" stroke-linecap="round" fill="none"/>
+  <text x="150" y="34" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#ff7a00" text-anchor="middle">MUSCLE TONIK</text>
+</svg>

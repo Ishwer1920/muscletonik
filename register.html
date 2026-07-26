@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Register - Muscle Tonik</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main class="section">
+  <div class="container">
+    <div class="auth-wrap">
+      <h1 data-auth-title>Create account</h1>
+      <p class="sub">Join Muscle Tonik for faster checkout and order tracking.</p>
+      <form data-endpoint="/auth/register" data-success-redirect="login.html" data-strength-check>
+        <div class="field"><label>Name</label><input name="name" type="text" autocomplete="name" required></div>
+        <div class="field"><label>Email</label><input name="email" type="email" autocomplete="email" required></div>
+        <div class="field"><label>Phone</label><input name="phone" type="tel" autocomplete="tel" placeholder="Optional"></div>
+        <div class="field">
+          <label>Password</label>
+          <div class="password-field">
+            <input name="password" type="password" autocomplete="new-password" minlength="8" data-strength="pwStrength" required>
+            <button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password">Show</button>
+          </div>
+          <div class="pw-strength" id="pwStrength">
+            <div class="pw-strength-bar"><span></span></div>
+            <div class="pw-strength-label"></div>
+          </div>
+          <p class="field-hint">Use at least 8 characters with letters and numbers.</p>
+        </div>
+        <div class="field">
+          <label>Confirm Password</label>
+          <div class="password-field">
+            <input name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
+            <button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password">Show</button>
+          </div>
+        </div>
+        <div class="field"><label>Referral Code (optional)</label><input name="referralCode" type="text" placeholder="Enter code if you have one"></div>
+        <p class="form-error" role="alert" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:6px;"></p>
+        <button class="btn btn-primary btn-block" type="submit">Create Account</button>
+      </form>
+      <p class="auth-foot">Already have an account? <a href="login.html">Login</a></p>
+      <p id="verificationHint" style="margin-top:12px;font-size:12px;color:var(--text-light);"></p>
+    </div>
+  </div>
+</main>
+<footer class="site" id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

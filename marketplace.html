@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Products - Muscle Tonik</title>
+<meta name="description" content="Shop premium whey protein, creatine, mass gainers, vitamins and fitness supplements at Muscle Tonik.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+
+<div class="page-head">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / <span>All Products</span></div>
+    <h1>All Products</h1>
+  </div>
+</div>
+
+<main class="section-tight">
+  <div class="container">
+    <p id="searchBanner" style="display:none;background:var(--primary-light);padding:12px 16px;border-radius:10px;font-weight:600;margin-bottom:20px;"></p>
+    <button id="filterToggle" class="btn btn-dark btn-sm filter-toggle" type="button">Open Filters</button>
+    <div class="filters-backdrop" id="filtersBackdrop"></div>
+
+    <div class="products-layout">
+      <aside class="filters" id="filtersPanel">
+        <div class="filters-head">
+          <h3 style="font-size:18px;">Filters</h3>
+          <button id="closeFilters" class="btn-icon" type="button" aria-label="Close filters">×</button>
+        </div>
+        <div class="filter-group">
+          <h5>Category</h5>
+          <div id="catFilters"></div>
+        </div>
+        <div class="filter-group">
+          <h5>Brand</h5>
+          <div id="brandFilters"></div>
+        </div>
+        <div class="filter-group">
+          <h5>Rating</h5>
+          <label><input type="radio" name="rating" data-type="rating" value="0" checked> All ratings</label>
+          <label><input type="radio" name="rating" data-type="rating" value="4"> 4 stars & above</label>
+          <label><input type="radio" name="rating" data-type="rating" value="4.5"> 4.5 stars & above</label>
+        </div>
+        <div class="filter-group">
+          <h5>Max Price</h5>
+          <input type="range" id="priceRange" min="300" max="5000" step="100">
+          <div class="range-row"><span>Rs 300</span><span id="priceLabel">Rs 5,000</span></div>
+        </div>
+        <button id="clearFilters" class="btn btn-outline btn-block btn-sm" style="margin-top:10px;">Clear Filters</button>
+      </aside>
+
+      <div>
+        <div class="toolbar">
+          <span class="result-count" id="resultCount"></span>
+          <select id="sortSelect">
+            <option value="popularity">Sort: Popularity</option>
+            <option value="price-low">Price: Low to High</option>
+            <option value="price-high">Price: High to Low</option>
+            <option value="discount">Discount</option>
+            <option value="newest">Newest</option>
+          </select>
+        </div>
+        <div class="prod-grid" id="productGrid"></div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site" id="site-footer"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/marketplace.js"></script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Muscle Tonik | Fuel Your Strength. Build Your Legacy.</title>
+<meta name="description" content="Buy authentic whey protein, creatine, mass gainers, vitamins and fitness supplements at Muscle Tonik. Premium supplements with fast delivery and clean design.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="/favicon.ico">
+</head>
+<body>
+<div id="site-header"></div>
+
+<section class="hero-slider" aria-label="Homepage highlights" data-home-section="hero">
+  <button class="slider-arrow prev" type="button" id="heroPrev" aria-label="Previous slide">‹</button>
+  <button class="slider-arrow next" type="button" id="heroNext" aria-label="Next slide">›</button>
+  <div id="heroSlides"></div>
+  <div class="slider-dots" id="heroDots"></div>
+</section>
+
+<main>
+  <section class="section" data-home-section="categories">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <span class="eyebrow" data-editor-field="categories.subheading">Shop by goal</span>
+          <h2 data-editor-field="categories.heading">Choose the result you are chasing</h2>
+        </div>
+      </div>
+      <div class="goal-grid" id="goalGrid"></div>
+    </div>
+  </section>
+
+  <section class="section-tight" data-home-section="brands">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <span class="eyebrow" data-editor-field="brands.subheading">Shop by category</span>
+          <h2 data-editor-field="brands.heading">Browse the core supplement ranges</h2>
+        </div>
+        <a class="viewall" href="category.html">View all categories</a>
+      </div>
+      <div class="cat-grid" id="categoryGrid"></div>
+    </div>
+  </section>
+
+  <section class="section" data-home-section="best-sellers">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <span class="eyebrow" data-editor-field="best-sellers.subheading">Top brands</span>
+          <h2 data-editor-field="best-sellers.heading">Trusted labels shoppers recognize</h2>
+        </div>
+        <a class="viewall" href="brands.html">View all brands</a>
+      </div>
+      <div class="brand-strip">
+        <div class="brand-track" id="brandTrack"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section bmi-section" data-home-section="bmi">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <span class="eyebrow">Find your fit</span>
+          <h2>Get your personalised diet &amp; workout plan</h2>
+        </div>
+      </div>
+
+      <div class="bmi-wrap">
+        <form class="bmi-form card-box" id="bmiForm" novalidate>
+          <div class="bmi-fields">
+            <div class="field">
+              <label for="bmiHeight">Height (cm)</label>
+              <input id="bmiHeight" name="height" type="number" inputmode="decimal" min="80" max="250" step="0.1" placeholder="175" required>
+            </div>
+            <div class="field">
+              <label for="bmiWeight">Weight (kg)</label>
+              <input id="bmiWeight" name="weight" type="number" inputmode="decimal" min="20" max="400" step="0.1" placeholder="70" required>
+            </div>
+            <div class="field">
+              <label for="bmiGoal">Your goal</label>
+              <select id="bmiGoal" name="goal">
+                <option value="auto">Recommend for me</option>
+                <option value="gain">Gain muscle</option>
+                <option value="lose">Lose fat</option>
+                <option value="maintain">Maintain</option>
+              </select>
+            </div>
+          </div>
+          <div class="bmi-error" id="bmiError" hidden role="alert"></div>
+          <button class="btn btn-primary btn-block" type="submit">Generate My Plan</button>
+          <p class="bmi-disclaimer">
+            BMI is a general screening tool, not a diagnosis. It doesn't account for muscle mass,
+            body composition, pregnancy, or medical conditions. Consult a doctor or registered
+            dietitian before changing your diet or starting supplements.
+          </p>
+        </form>
+
+        <div class="bmi-result card-box" id="bmiResult" hidden aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" data-home-section="best-products">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <span class="eyebrow" data-editor-field="best-products.subheading">Best sellers</span>
+          <h2 data-editor-field="best-products.heading">Popular picks our customers reorder</h2>
+        </div>
+        <a class="viewall" href="marketplace.html">View all products</a>
+      </div>
+      <div class="prod-grid" id="bestSellerGrid"></div>
+    </div>
+  </section>
+
+  <section class="section-tight" data-home-section="deals">
+    <div class="container">
+      <div class="deal-banner reveal">
+        <div>
+          <span class="eyebrow" data-editor-field="deals.subheading">Deal of the day</span>
+          <h2 data-editor-field="deals.heading" style="font-size:clamp(26px,4vw,36px);margin-top:8px;">One sharp deal. One short timer.</h2>
+          <p data-editor-field="deals.copy" style="color:#e8e8e8;max-width:520px;margin-top:12px;">A premium orange-black banner built to move the best-value product before the countdown runs out.</p>
+          <div class="countdown" id="homeCountdown">
+            <div><b id="deal-h">06</b><span>HRS</span></div>
+            <div><b id="deal-m">12</b><span>MIN</span></div>
+            <div><b id="deal-s">45</b><span>SEC</span></div>
+          </div>
+          <a href="offers.html" class="btn btn-primary" style="margin-top:24px;">Claim Now</a>
+        </div>
+        <div id="dealSpotlight"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" data-home-section="featured">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <span class="eyebrow" data-editor-field="featured.subheading">Featured products</span>
+          <h2 data-editor-field="featured.heading">Hand-picked for a premium browse</h2>
+        </div>
+        <a class="viewall" href="marketplace.html">View all products</a>
+      </div>
+      <div class="prod-grid" id="featuredGrid"></div>
+    </div>
+  </section>
+
+  <section class="section-tight" data-home-section="collections">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <span class="eyebrow" data-editor-field="collections.subheading">Transformation stories</span>
+          <h2 data-editor-field="collections.heading">Real routines, real results</h2>
+        </div>
+      </div>
+      <div class="story-grid" id="storyGrid"></div>
+    </div>
+  </section>
+
+  <section class="section-tight" data-home-section="testimonials">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <span class="eyebrow" data-editor-field="testimonials.subheading">Customer reviews</span>
+          <h2 data-editor-field="testimonials.heading">What people say after ordering</h2>
+        </div>
+      </div>
+      <div class="review-carousel reveal">
+        <div class="review-track" id="reviewTrack"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-tight" data-home-section="newsletter">
+    <div class="container">
+      <div class="newsletter reveal">
+        <div>
+          <h3 data-editor-field="newsletter.heading" style="font-size:19px;">Get 10% Off Your First Order</h3>
+          <p data-editor-field="newsletter.copy" style="color:var(--text-light);font-size:13.5px;margin-top:4px;">Join for early access to new launches, seasonal offers, and restock alerts.</p>
+        </div>
+        <form class="nl-form" onsubmit="event.preventDefault();showToast('Subscribed successfully');this.reset();">
+          <input type="email" placeholder="you@email.com" required>
+          <button type="submit" class="btn btn-dark">Subscribe</button>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site" id="site-footer" data-home-section="footer"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/home.js"></script>
+<!-- Plans are paid for directly from the BMI section, so the gateway SDK and
+     the checkout payment module are needed here, not just on checkout.html. -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="js/checkout/payment.js"></script>
+<script src="js/plan-content.js"></script>
+<script src="js/plan-export.js"></script>
+<script src="js/plan-download.js"></script>
+<script src="js/bmi.js"></script>
+</body>
+</html>
+

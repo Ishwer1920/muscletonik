@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Orders - Muscle Tonik</title>
+<!-- This page lives in /admin/ but reuses the storefront header/footer from
+     core.js, which emits root-relative links (marketplace.html, cart.html…).
+     Without this <base>, those would resolve to /admin/marketplace.html. -->
+<base href="/">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+<div class="page-head"><div class="container"><div class="breadcrumb"><a href="/index.html">Home</a> / <span>Admin</span></div><h1>Orders Dashboard</h1></div></div>
+<main class="section-tight">
+  <div class="container">
+    <div id="adminOrdersControls" style="display:none;margin-bottom:16px;gap:10px;flex-wrap:wrap;align-items:center;">
+      <label style="font-weight:600;">Filter:</label>
+      <select id="providerFilter" class="admin-select">
+        <option value="">All payment types</option>
+        <option value="cod">Cash on Delivery</option>
+        <option value="razorpay">Online (Razorpay)</option>
+      </select>
+      <select id="fulfillmentFilter" class="admin-select">
+        <option value="">All statuses</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="packed">Packed</option>
+        <option value="shipped">Shipped</option>
+        <option value="out_for_delivery">Out for delivery</option>
+        <option value="delivered">Delivered</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <button id="refreshOrders" class="btn btn-dark" type="button" style="padding:8px 16px;">Refresh</button>
+      <span id="ordersCount" style="color:var(--text-light);font-weight:600;"></span>
+    </div>
+    <div id="adminOrdersRoot"><p style="color:var(--text-light);">Loading…</p></div>
+  </div>
+</main>
+<footer class="site" id="site-footer"></footer>
+<script src="/js/data.js"></script>
+<script src="/js/core.js"></script>
+<script src="/js/admin/orders.js"></script>
+</body>
+</html>

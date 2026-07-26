@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team & Roles · Muscle Tonik Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body class="admin">
+<div class="admin-layout">
+  <div class="a-backdrop"></div>
+  <aside class="a-sidebar" id="aSidebar"></aside>
+  <div class="a-main">
+    <header class="a-topbar" id="aTopbar"></header>
+    <div class="a-content" id="aContent"></div>
+  </div>
+</div>
+<div class="a-modal-back" id="teamModalBack">
+  <div class="a-modal">
+    <div class="a-modal-head"><span>Add team member</span><button class="a-icon-btn" id="teamModalClose" style="border:none;">✕</button></div>
+    <form id="teamForm">
+      <div class="a-modal-body">
+        <div class="a-field"><label>Full name</label><input class="a-input" name="name" required></div>
+        <div class="a-field"><label>Email</label><input class="a-input" type="email" name="email" required></div>
+        <div class="a-field"><label>Temporary password</label><input class="a-input" type="text" name="password" minlength="8" required></div>
+        <div class="a-field"><label>Role</label>
+          <select class="a-select" name="role" required>
+            <option value="staff">Staff / Editor</option>
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+            <option value="super_admin">Super Admin</option>
+          </select>
+        </div>
+        <div id="teamFormError" style="color:var(--a-red);font-size:13px;"></div>
+      </div>
+      <div class="a-modal-foot">
+        <button type="button" class="a-btn ghost" id="teamCancel">Cancel</button>
+        <button type="submit" class="a-btn primary">Create member</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script src="/js/admin/admin-core.js"></script>
+<script src="/js/admin/team.js"></script>
+</body>
+</html>

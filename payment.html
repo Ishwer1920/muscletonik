@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Status - Muscle Tonik</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-header"></div>
+<main class="section">
+  <div class="container">
+    <!-- return.js renders the pending / success / failed / cancelled / unknown
+         screen into this container based on ?status= and the stored order. -->
+    <div id="returnRoot" aria-live="polite">
+      <div class="result-wrap">
+        <div class="result-icon pending">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <h1>Loading your payment status…</h1>
+        <p>One moment.</p>
+      </div>
+    </div>
+  </div>
+</main>
+<footer class="site" id="site-footer"></footer>
+
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/checkout/utils.js"></script>
+<script src="js/checkout/storage.js"></script>
+<script src="js/checkout/validation.js"></script>
+<script src="js/checkout/cart.js"></script>
+<script src="js/checkout/payment.js"></script>
+<script src="js/checkout/ui.js"></script>
+<script src="js/plan-content.js"></script>
+<script src="js/plan-export.js"></script>
+<script src="js/plan-download.js"></script>
+<script src="js/checkout/return.js"></script>
+</body>
+</html>
