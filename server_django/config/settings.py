@@ -17,6 +17,15 @@ DEBUG = not mt_env.IS_PRODUCTION
 
 ALLOWED_HOSTS = ["*"]
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+}
+
 INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
