@@ -1,0 +1,4 @@
+mongodump_export/
+mongodump_export.zip
+atlas_dump_check/
+*.env
