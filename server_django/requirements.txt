@@ -1,0 +1,10 @@
+Django==5.2.16
+djangorestframework==3.17.1
+django-cors-headers==4.9.0
+mongoengine==0.29.3
+pymongo==4.17.0
+PyJWT==2.13.0
+bcrypt==5.0.0
+python-dotenv==1.2.2
+razorpay==2.0.1
+gunicorn==23.0.0
