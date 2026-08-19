@@ -1,4 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from apps.core import env
@@ -6,7 +7,7 @@ from apps.core.permissions import RequireAuth
 from apps.orders.serializers import order_to_dict
 from apps.payments.serializers import payment_to_dict
 
-from . import services
+from . import pricing, services
 from .pricing import COD_ADVANCE_RATE, split_cod_amounts
 
 
@@ -97,3 +98,75 @@ def verify_payment(request):
         "payment": payment_to_dict(result["payment"]),
         "plans": result["plans"] or [],
     })
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def validate_coupon(request):
+    """Quote a coupon against the cart without creating anything.
+
+    The storefront used to score coupons from a hardcoded {TONIK10: 0.10}
+    table in js/cart.js, so every code the admin panel created looked invalid
+    to the shopper. This is the same evaluator checkout uses, so the cart page
+    and the final bill can never disagree.
+
+    Works signed-out (the cart page) - per-customer limits are only checked
+    when we know who is asking, and always re-checked at checkout.
+    """
+    payload = request.data or {}
+    code = payload.get("couponCode") or payload.get("code")
+    if not str(code or "").strip():
+        return Response({"message": "Enter a coupon code.", "valid": False}, status=400)
+
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        return Response({
+            "valid": False,
+            "message": "Add something to your cart before applying a coupon.",
+        }, status=400)
+
+    user = getattr(request, "user", None)
+    user_id = getattr(user, "sub", None) if getattr(user, "is_authenticated", False) else None
+
+    line_items = services.resolve_line_items(items)
+    subtotal = sum(li["lineTotal"] for li in line_items)
+    result = pricing.evaluate_coupon(code, line_items, user_id=user_id, subtotal=subtotal)
+
+    if not result["ok"]:
+        return Response({
+            "valid": False,
+            "code": str(code).strip().upper(),
+            "message": result["reason"] or "That coupon code is not valid.",
+        })
+
+    after_coupon = max(0, subtotal - result["amount"])
+    has_physical = any(not li["product"].digital for li in line_items)
+    shipping = pricing.shipping_charge(after_coupon) if has_physical else 0
+    if result["freeShipping"]:
+        shipping = 0
+    gst = pricing.gst_amount(after_coupon)
+
+    detail = pricing.coupon_public_view(result.get("coupon"))
+    return Response({
+        "valid": True,
+        "code": result["code"],
+        "discount": result["amount"],
+        "freeShipping": result["freeShipping"],
+        "eligibleSubtotal": result["eligibleSubtotal"],
+        "coupon": detail,
+        "message": _applied_message(result, detail),
+        "summary": {
+            "subtotal": subtotal,
+            "discount": result["amount"],
+            "shipping": shipping,
+            "gst": gst,
+            "total": after_coupon + shipping + gst,
+        },
+    })
+
+
+def _applied_message(result, detail):
+    if result["freeShipping"]:
+        return "Free shipping applied with " + result["code"] + "."
+    label = (detail or {}).get("title") or result["code"]
+    return "Coupon applied: " + label + " (-Rs." + str(result["amount"]) + ")"

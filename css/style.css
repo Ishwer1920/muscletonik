@@ -905,6 +905,10 @@ input[type=range]{width:100%;accent-color:var(--primary);}
 .summary-row{display:flex;justify-content:space-between;font-size:14px;padding:8px 0;}
 .summary-row.total{font-weight:800;font-size:16px;border-top:1.5px dashed var(--border);margin-top:8px;padding-top:14px;}
 .coupon-row{display:flex;gap:8px;margin:16px 0;}
+/* Why a coupon was accepted or refused, shown under the coupon input. */
+.coupon-note{min-height:16px;margin:-8px 0 12px;font-size:12px;line-height:1.45;color:var(--text-light);}
+.coupon-note.ok{color:var(--green,#128a4d);font-weight:600;}
+.coupon-note.bad{color:var(--red,#d33);font-weight:600;}
 .coupon-row input{flex:1;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13.5px;}
 .empty-state{text-align:center;padding:80px 20px;}
 .empty-state .icon{width:80px;height:80px;border-radius:50%;background:var(--gray);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
@@ -1130,6 +1134,24 @@ body.preview-mode header.site{top:44px;}
    AUTH / DASHBOARD / PROFILE — password meter, avatars, dashboard
    =========================================================== */
 .field-hint{font-size:12px;color:var(--text-light);margin-top:6px;}
+
+/* ---- Forgot-password OTP wizard (forgot-password.html) ---- */
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--text);}
+.btn-ghost:hover{background:var(--bg-soft,#f6f6f6);}
+.otp-steps{display:flex;gap:6px;list-style:none;padding:0;margin:0 0 22px;counter-reset:otp;}
+.otp-steps li{flex:1;position:relative;padding-top:22px;font-size:11px;font-weight:600;color:var(--text-light);text-align:center;line-height:1.2;}
+.otp-steps li::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;border-radius:3px;background:var(--border);}
+.otp-steps li.done::before{background:var(--green,#128a4d);}
+.otp-steps li.active::before{background:var(--primary,#111);}
+.otp-steps li.active{color:var(--text);}
+.otp-channels{display:grid;gap:10px;margin-bottom:14px;}
+.otp-channel{display:flex;gap:12px;align-items:center;border:1.5px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s,background .15s;}
+.otp-channel:hover{background:var(--bg-soft,#fafafa);}
+.otp-channel:has(input:checked){border-color:var(--primary,#111);background:var(--bg-soft,#fafafa);}
+.otp-channel input{width:auto;margin:0;accent-color:var(--primary,#111);}
+.otp-channel-body{display:flex;flex-direction:column;gap:2px;}
+.otp-channel-body strong{font-size:14px;}
+.otp-channel-body em{font-style:normal;font-size:12px;color:var(--text-light);}
 .form-status{font-size:13px;font-weight:600;min-height:18px;margin:10px 0 0;}
 .form-status.ok{color:var(--green);}
 .form-status.err{color:var(--red);}

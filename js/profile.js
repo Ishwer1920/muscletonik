@@ -153,8 +153,7 @@ function wireAvatar(user) {
       const base = mtApiBase();
       let res = await fetch(base + "/auth/avatar", { method: "POST", credentials: "include", body });
       if (res.status === 401) {
-        const refreshed = await fetch(base + "/auth/refresh", { method: "POST", credentials: "include" }).catch(() => null);
-        if (refreshed && refreshed.ok) res = await fetch(base + "/auth/avatar", { method: "POST", credentials: "include", body });
+        if (await mtRefreshSession()) res = await fetch(base + "/auth/avatar", { method: "POST", credentials: "include", body });
       }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "Upload failed");

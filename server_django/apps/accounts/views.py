@@ -14,10 +14,12 @@ from apps.core.permissions import RequireAuth
 
 from . import services, validation
 from .mailer import send_mail
+from .sms import send_otp_sms
 from .models import User
 
 
-REFRESH_COOKIE_MAXAGE = 60 * 60 * 24 * 30
+REFRESH_COOKIE_MAXAGE = mt_env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60
+ACCESS_COOKIE_MAXAGE = mt_env.ACCESS_TOKEN_TTL_MINUTES * 60
 
 
 def _cookie_kwargs():
@@ -30,7 +32,10 @@ def _cookie_kwargs():
 
 
 def set_auth_cookies(response, access_token, refresh_token):
-    response.set_cookie("accessToken", access_token, **_cookie_kwargs())
+    # Both cookies carry an explicit max-age. The access cookie used to be a
+    # browser-session cookie, so closing the tab threw the session away even
+    # though the refresh token was still valid for weeks.
+    response.set_cookie("accessToken", access_token, max_age=ACCESS_COOKIE_MAXAGE, **_cookie_kwargs())
     response.set_cookie("refreshToken", refresh_token, max_age=REFRESH_COOKIE_MAXAGE, **_cookie_kwargs())
 
 
@@ -70,6 +75,8 @@ def register(request):
         f'<p>Welcome to Muscle Tonik.</p><p>Verify your email here: <a href="{verification_url}">{verification_url}</a></p>',
     )
     body = {"message": "Account created", "user": result["user"]}
+    if result["user"].get("referralCode"):
+        body["message"] = "Account created. Referral code " + result["user"]["referralCode"] + " saved."
     if not mt_env.IS_PRODUCTION:
         body["verificationUrl"] = verification_url
     return Response(body, status=201)
@@ -263,3 +270,126 @@ class UploadAvatarView(APIView):
         user.avatarUrl = url
         user.save()
         return Response({"message": "Profile photo updated", "avatarUrl": url, "user": safe_user_full(user)}, status=201)
+
+
+# ---------------------------------------------------------------------------
+# Forgot password, OTP flow: lookup -> send code -> verify -> set new password
+# ---------------------------------------------------------------------------
+
+GENERIC_LOOKUP_FAILURE = (
+    "We could not find an account with that email or mobile number."
+)
+
+
+def _otp_debug(body, code):
+    """Outside production the code is echoed back so the flow can be tested
+    without a working mail server or SMS account. Never in production."""
+    if not mt_env.IS_PRODUCTION:
+        body["devCode"] = code
+    return body
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def forgot_password_lookup(request):
+    """Step 1. Identify the account and report where a code can be sent.
+
+    This deliberately confirms whether an account exists, because the customer
+    has to choose between their email and their mobile before anything is
+    sent. That is the same trade-off every Indian storefront OTP flow makes;
+    the endpoint is rate limited and reveals only masked destinations.
+    """
+    identifier = str(request.data.get("identifier") or "").strip()
+    if len(identifier) < 3:
+        return _validation_response([
+            {"msg": "Enter your registered email or mobile number.", "param": "identifier"}
+        ])
+
+    user = services.find_account_for_reset(identifier)
+    if not user:
+        return Response({"message": GENERIC_LOOKUP_FAILURE}, status=404)
+
+    channels = services.reset_channels(user)
+    if not channels:
+        return Response({
+            "message": "This account has no email or mobile number on file. Please contact support.",
+        }, status=400)
+
+    return Response({
+        "message": "Choose where you want the verification code sent.",
+        "identifier": identifier,
+        "name": user.name,
+        "channels": channels,
+    })
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def forgot_password_send_otp(request):
+    """Step 2. Generate the code and deliver it on the chosen channel."""
+    identifier = str(request.data.get("identifier") or "").strip()
+    channel = str(request.data.get("channel") or "").strip().lower()
+
+    user = services.find_account_for_reset(identifier)
+    if not user:
+        return Response({"message": GENERIC_LOOKUP_FAILURE}, status=404)
+
+    issued = services.issue_reset_otp(user, channel)
+    code = issued["otp"]
+    minutes = issued["expiresInMinutes"]
+
+    if channel == "sms":
+        delivered = send_otp_sms(user.phone, code, minutes)
+        sent_to = "your mobile number ending " + issued["destination"][-4:]
+    else:
+        delivered = send_mail(
+            user.email,
+            "Your Muscle Tonik password reset code",
+            "<p>Hi " + (user.name or "there") + ",</p>"
+            "<p>Your password reset code is:</p>"
+            '<p style="font-size:26px;font-weight:700;letter-spacing:4px;">' + code + "</p>"
+            "<p>It expires in " + str(minutes) + " minutes. If you did not request this, "
+            "you can ignore this email.</p>",
+        )
+        sent_to = issued["destination"]
+
+    body = {
+        "channel": channel,
+        "destination": issued["destination"],
+        "expiresInMinutes": minutes,
+        "resendAfterSeconds": issued["resendAfterSeconds"],
+        "delivered": bool(delivered),
+    }
+
+    if not delivered:
+        # The code is valid either way. Say so plainly rather than pretending
+        # a message went out that the gateway never accepted.
+        body["message"] = (
+            "We could not deliver the code right now. Please try the other option, "
+            "or contact support if this keeps happening."
+        )
+        return Response(_otp_debug(body, code), status=502)
+
+    body["message"] = "Verification code sent to " + sent_to + "."
+    return Response(_otp_debug(body, code))
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def forgot_password_verify_otp(request):
+    """Step 3. Trade a correct code for a short-lived reset token."""
+    identifier = str(request.data.get("identifier") or "").strip()
+    code = str(request.data.get("code") or "").strip()
+
+    if not code:
+        return _validation_response([{"msg": "Enter the code you received.", "param": "code"}])
+
+    user = services.find_account_for_reset(identifier)
+    if not user:
+        return Response({"message": GENERIC_LOOKUP_FAILURE}, status=404)
+
+    token = services.verify_reset_otp(user, code)
+    return Response({
+        "message": "Code verified. Choose a new password.",
+        "resetToken": token,
+    })

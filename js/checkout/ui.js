@@ -82,6 +82,17 @@ window.MTCheckout.ui = (function () {
         (summary.couponCode ? " (" + esc(summary.couponCode) + ")" : "") +
         "</span><span>- " + money(summary.discount) + "</span></div>");
     }
+    if (summary.couponFreeShipping) {
+      rows.push('<div class="co-row co-row-discount"><span>Free shipping' +
+        (summary.couponCode ? " (" + esc(summary.couponCode) + ")" : "") +
+        "</span><span>applied</span></div>");
+    }
+    // Why a code was refused ("Add Rs.200 more...", "Only on Optimum
+    // Nutrition") - without this the field just silently does nothing.
+    if (!summary.couponCode && summary.couponMessage) {
+      rows.push('<div class="co-row co-row-note" style="color:var(--red,#d33);font-size:12px;"><span>' +
+        esc(summary.couponMessage) + "</span><span></span></div>");
+    }
     rows.push('<div class="co-row"><span>GST (' + Math.round(summary.gstRate * 100) + '%)</span><span>' + money(summary.gst) + "</span></div>");
     rows.push('<div class="co-row"><span>Delivery</span><span>' +
       (summary.shipping === 0 ? '<em class="co-free">FREE</em>' : money(summary.shipping)) + "</span></div>");

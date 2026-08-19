@@ -176,6 +176,20 @@ const AdminShell = (() => {
     ];
   }
 
+  // One shared in-flight refresh. Every admin page fires several api() calls
+  // at once; letting each of them POST /auth/refresh separately made the tabs
+  // race for the same rotating cookie and knocked the session out.
+  let refreshInFlight = null;
+  function refreshSession() {
+    if (!refreshInFlight) {
+      refreshInFlight = fetch(API + "/auth/refresh", { method: "POST", credentials: "include" })
+        .then(res => res.ok)
+        .catch(() => false)
+        .finally(() => { refreshInFlight = null; });
+    }
+    return refreshInFlight;
+  }
+
   async function api(path, options = {}) {
     const headers = { Accept: "application/json", ...(options.headers || {}) };
     const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
@@ -195,8 +209,7 @@ const AdminShell = (() => {
     });
     let res = await send();
     if (res.status === 401) {
-      const refresh = await fetch(API + "/auth/refresh", { method: "POST", credentials: "include" }).catch(() => null);
-      if (refresh && refresh.ok) res = await send();
+      if (await refreshSession()) res = await send();
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -561,6 +574,24 @@ const AdminShell = (() => {
     root.innerHTML = `<div class="a-empty"><h3>Access denied</h3><p>${msg || "You don't have permission to view this area."}</p><a class="a-btn primary" href="/login.html" style="margin-top:14px;">Sign in as admin</a></div>`;
   }
 
+  // Keep the session warm for as long as an admin tab is open. There is no
+  // idle timer in this panel by design — an admin is never signed out for
+  // sitting still, only by clicking Sign out or by the refresh token expiring.
+  const KEEPALIVE_MS = 10 * 60 * 1000;
+  let keepAliveTimer = null;
+  function startKeepAlive() {
+    if (keepAliveTimer) return;
+    keepAliveTimer = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      refreshSession();
+    }, KEEPALIVE_MS);
+    // A laptop waking from sleep, or a tab pulled back to the front after
+    // hours, gets an immediate top-up instead of one failed request first.
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") refreshSession();
+    });
+  }
+
   async function logout() {
     try { await fetch(API + "/auth/logout", { method: "POST", credentials: "include" }); } catch {}
     localStorage.removeItem("mt_user");
@@ -597,6 +628,7 @@ const AdminShell = (() => {
       accessDenied(content, `Your role (${roleLabel(current.role)}) cannot access ${title}.`);
       return null;
     }
+    startKeepAlive();
     return current;
   }
 
@@ -625,6 +657,7 @@ const AdminShell = (() => {
   return {
     init,
     api,
+    refreshSession,
     toast,
     inr,
     esc,

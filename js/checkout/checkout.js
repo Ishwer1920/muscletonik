@@ -23,6 +23,7 @@
     items: [],
     summary: null,
     user: null,
+    coupon: null,  // the API's verdict on the entered code, see refreshCoupon()
     paying: false // guards against double submits / double charges
   };
 
@@ -60,9 +61,33 @@
     return els.coupon ? els.coupon.value : "";
   }
 
+  // Re-quote the coupon with the API, then repaint. Called when the coupon
+  // field changes; the quote is cached in state so plain repaints (quantity,
+  // payment mode) don't fire a request each time.
+  function refreshCoupon() {
+    var code = cartModule.normalizeCoupon(currentCoupon());
+    if (!code) {
+      state.coupon = null;
+      recompute();
+      return Promise.resolve(null);
+    }
+    if (state.coupon && state.coupon.code === code) {
+      recompute();
+      return Promise.resolve(state.coupon);
+    }
+    return cartModule.quoteCoupon(code, state.items).then(function (quote) {
+      state.coupon = quote;
+      recompute();
+      return quote;
+    });
+  }
+
   // Recompute + repaint the summary. Single source of the totals calculation.
   function recompute() {
-    state.summary = cartModule.computeSummary(state.items, { couponCode: currentCoupon() });
+    state.summary = cartModule.computeSummary(state.items, {
+      couponCode: currentCoupon(),
+      coupon: state.coupon
+    });
     ui.renderOrderSummary({
       itemsEl: els.items,
       totalsEl: els.totals,
@@ -299,8 +324,14 @@
     if (!totalCheck.ok) { ui.showErrors(els.message, totalCheck.errors); }
 
     if (els.coupon) {
-      els.coupon.addEventListener("change", recompute);
-      els.coupon.addEventListener("blur", recompute);
+      els.coupon.addEventListener("change", refreshCoupon);
+      els.coupon.addEventListener("blur", refreshCoupon);
+      // Carry over whatever the shopper already applied on the cart page.
+      if (!els.coupon.value && typeof Store !== "undefined") {
+        var carried = Store.get("mt_coupon", "");
+        if (carried) els.coupon.value = carried;
+      }
+      if (els.coupon.value) refreshCoupon();
     }
     els.form.addEventListener("submit", onSubmit);
   }

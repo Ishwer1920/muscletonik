@@ -14,7 +14,10 @@ window.MTCheckout.cart = (function () {
   var utils = window.MTCheckout.utils;
 
   // Coupon and rate rules are defined once here.
-  var COUPONS = { TONIK10: 0.10, FIRST15: 0.15 };
+  // No local table of codes and rates. Coupons are priced by the API (the
+  // same evaluator checkout itself uses), so brand-scoped codes, minimum-order
+  // rules and per-customer limits are honoured here instead of being invisible
+  // to the browser.
   var GST_RATE = 0.05;
   var FREE_SHIPPING_OVER = 599;
   var SHIPPING_FEE = 79;
@@ -73,9 +76,36 @@ window.MTCheckout.cart = (function () {
     return String(code || "").trim().toUpperCase();
   }
 
-  function couponRate(code) {
-    var key = normalizeCoupon(code);
-    return COUPONS[key] || 0;
+  // Ask the server what this code is worth for this exact cart. Resolves to
+  // { valid, code, discount, freeShipping, message } and never rejects, so a
+  // network blip just means "no discount shown yet", not a broken page.
+  function quoteCoupon(code, items) {
+    var normalized = normalizeCoupon(code);
+    if (!normalized || !items || !items.length) {
+      return Promise.resolve({ valid: false, code: normalized, discount: 0, freeShipping: false, message: "" });
+    }
+    var base = window.MT_API_BASE || (typeof getApiBase === "function" ? getApiBase() : "");
+    return fetch(base + "/checkout/coupon", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        couponCode: normalized,
+        items: items.map(function (i) { return { id: i.id, qty: i.qty }; })
+      })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; });
+    }).then(function (data) {
+      return {
+        valid: !!(data && data.valid),
+        code: normalized,
+        discount: (data && data.discount) || 0,
+        freeShipping: !!(data && data.freeShipping),
+        message: (data && data.message) || ""
+      };
+    }).catch(function () {
+      return { valid: false, code: normalized, discount: 0, freeShipping: false, message: "" };
+    });
   }
 
   // Compute the order summary from already-resolved line items. Pure function of
@@ -87,17 +117,21 @@ window.MTCheckout.cart = (function () {
     }, 0);
     subtotal = Math.round(subtotal);
 
-    var code = normalizeCoupon(options.couponCode);
-    var rate = COUPONS[code] || 0;
-    var discount = Math.round(subtotal * rate);
+    // options.coupon is the server's verdict for this cart, from quoteCoupon().
+    var quote = options.coupon && options.coupon.valid ? options.coupon : null;
+    var code = normalizeCoupon(quote ? quote.code : options.couponCode);
+    var discount = quote ? Math.min(quote.discount || 0, subtotal) : 0;
     var afterCoupon = subtotal - discount;
     var gst = Math.round(afterCoupon * GST_RATE);
     var shipping = (afterCoupon > FREE_SHIPPING_OVER || afterCoupon === 0) ? 0 : SHIPPING_FEE;
+    if (quote && quote.freeShipping) shipping = 0;
     var total = afterCoupon + gst + shipping;
 
     return {
       subtotal: subtotal,
-      couponCode: rate > 0 ? code : "",
+      couponCode: quote ? code : "",
+      couponMessage: options.coupon ? options.coupon.message : "",
+      couponFreeShipping: !!(quote && quote.freeShipping),
       discount: discount,
       gst: gst,
       gstRate: GST_RATE,
@@ -110,8 +144,7 @@ window.MTCheckout.cart = (function () {
   return {
     load: load,
     computeSummary: computeSummary,
-    couponRate: couponRate,
-    normalizeCoupon: normalizeCoupon,
-    COUPONS: COUPONS
+    quoteCoupon: quoteCoupon,
+    normalizeCoupon: normalizeCoupon
   };
 })();

@@ -160,6 +160,21 @@ function getApiBase() {
   return loc.origin + "/api";
 }
 
+// A single shared refresh call for the whole page. Every module used to POST
+// /auth/refresh on its own; when a page fired several API calls at once they
+// all raced for the same rotating refresh cookie and the loser's 401 signed
+// the user out. Deduplicating them means one rotation per expiry, never more.
+let mtRefreshInFlight = null;
+function mtRefreshSession() {
+  if (!mtRefreshInFlight) {
+    mtRefreshInFlight = fetch(getApiBase() + "/auth/refresh", { method: "POST", credentials: "include" })
+      .then(res => res.ok)
+      .catch(() => false)
+      .finally(() => { mtRefreshInFlight = null; });
+  }
+  return mtRefreshInFlight;
+}
+
 async function hydrateCatalogFromApi() {
   if (typeof fetch !== "function") return false;
   try {
@@ -194,6 +209,7 @@ const MT_CATALOG_READY = hydrateCatalogFromApi();
 
 if (typeof window !== "undefined") {
   window.MT_API_BASE = getApiBase();
+  window.mtRefreshSession = mtRefreshSession;
   window.MT_CATALOG_READY = MT_CATALOG_READY;
   window.MT_SHARED_CATALOG = {
     get brands() { return BRANDS; },

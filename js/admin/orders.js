@@ -13,8 +13,10 @@ async function adminApi(path, options) {
   });
   let res = await send();
   if (res.status === 401) {
-    const refreshed = await fetch(base + "/auth/refresh", { method: "POST", credentials: "include" }).catch(() => null);
-    if (refreshed && refreshed.ok) res = await send();
+    // Share AdminShell's single in-flight refresh so parallel calls on this
+    // page can't race each other into a bogus "session expired" sign-out.
+    const refreshed = await AdminShell.refreshSession();
+    if (refreshed) res = await send();
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

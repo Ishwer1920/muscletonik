@@ -23,6 +23,35 @@ class CartItem(me.EmbeddedDocument):
     quantity = me.IntField(default=1, min_value=1)
 
 
+class RotatedRefreshToken(me.EmbeddedDocument):
+    """A refresh token that has just been swapped for a newer pair.
+
+    Two tabs (or two parallel requests from one page) can both hit
+    /auth/refresh holding the same cookie. Without this, the first request
+    wins and every other one gets "Refresh session not recognized" -> the
+    admin panel bounces to the login screen for no reason. Keeping the old
+    token for a short grace period lets the losers replay the same answer."""
+
+    token = me.StringField(required=True)
+    accessToken = me.StringField(default="")
+    replacement = me.StringField(default="")
+    rotatedAt = me.DateTimeField()
+
+
+class PasswordResetOtp(me.EmbeddedDocument):
+    """A one-time code issued for the forgot-password flow, delivered to
+    either the account email or the account mobile number."""
+
+    codeHash = me.StringField(required=True)
+    channel = me.StringField(choices=["email", "sms"], default="email")
+    destination = me.StringField(default="")   # masked, safe to echo back
+    expiresAt = me.DateTimeField()
+    attempts = me.IntField(default=0)
+    resendCount = me.IntField(default=0)
+    lastSentAt = me.DateTimeField()
+    verifiedAt = me.DateTimeField(default=None)
+
+
 class User(me.Document):
     name = me.StringField(required=True)
     email = me.EmailField(required=True, unique=True)
@@ -37,17 +66,21 @@ class User(me.Document):
     passwordResetTokenHash = me.StringField(default="")
     passwordResetTokenExpiresAt = me.DateTimeField(default=None)
     refreshTokens = me.ListField(me.StringField(), default=list)
+    rotatedRefreshTokens = me.EmbeddedDocumentListField(RotatedRefreshToken, default=list)
+    passwordResetOtp = me.EmbeddedDocumentField(PasswordResetOtp, default=None)
     addresses = me.EmbeddedDocumentListField(Address, default=list)
     wishlist = me.ListField(me.ObjectIdField(), default=list)
     cart = me.EmbeddedDocumentListField(CartItem, default=list)
     status = me.StringField(choices=["active", "blocked"], default="active")
+    # Referral / welcome coupon code entered at signup, if it checked out.
+    referralCode = me.StringField(default="")
 
     createdAt = me.DateTimeField()
     updatedAt = me.DateTimeField()
 
     meta = {
         "collection": "users",
-        "indexes": ["email"],
+        "indexes": ["email", "phone"],
         "strict": False,  # Mongoose writes a __v version key we don't model
     }
 

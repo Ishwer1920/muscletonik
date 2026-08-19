@@ -4,6 +4,38 @@ EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 PHONE_RE = re.compile(r"^\+?\d[\d\s-]{6,}$")
 
 
+def normalize_phone(value):
+    """Reduce a typed mobile number to the digits we store and match on.
+
+    "+91 98765-43210", "098765 43210" and "9876543210" are the same number to
+    a human, and they must be the same number to us too: registration used to
+    store whatever was typed while login stripped only spaces and hyphens, so
+    anyone who signed up with a +91 prefix could never log in by phone again,
+    and the OTP flow could not find their account either."""
+    digits = "".join(ch for ch in str(value or "") if ch.isdigit())
+    if len(digits) > 10 and digits.startswith("91"):
+        digits = digits[2:]          # India country code
+    if len(digits) == 11 and digits.startswith("0"):
+        digits = digits[1:]          # trunk prefix
+    return digits
+
+
+def phone_variants(value):
+    """Every stored spelling of a number that should resolve to one account.
+    Existing rows predate normalization, so a lookup has to cover them."""
+    raw = str(value or "").strip()
+    digits = normalize_phone(raw)
+    candidates = [digits, raw, raw.replace(" ", "").replace("-", "")]
+    if digits:
+        candidates += ["+91" + digits, "91" + digits, "0" + digits, "+91 " + digits]
+    seen, out = set(), []
+    for c in candidates:
+        if c and c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
 def strong_password(value):
     v = str(value or "")
     if len(v) < 8:
@@ -28,8 +60,10 @@ def validate_register(data):
         errors.append({"msg": pw_error, "param": "password"})
 
     phone = data.get("phone")
-    if phone and not (8 <= len(str(phone)) <= 20):
-        errors.append({"msg": "Phone number must be between 8 and 20 digits.", "param": "phone"})
+    if phone:
+        digits = normalize_phone(phone)
+        if not (8 <= len(digits) <= 15):
+            errors.append({"msg": "Enter a valid mobile number (10 digits).", "param": "phone"})
 
     return errors
 
@@ -100,6 +134,6 @@ def validate_update_profile(data):
         if name and not (2 <= len(name) <= 60):
             errors.append({"msg": "Name must be between 2 and 60 characters.", "param": "name"})
     phone = data.get("phone")
-    if phone and not (8 <= len(str(phone)) <= 20):
-        errors.append({"msg": "Phone number must be between 8 and 20 digits.", "param": "phone"})
+    if phone and not (8 <= len(normalize_phone(phone)) <= 15):
+        errors.append({"msg": "Enter a valid mobile number (10 digits).", "param": "phone"})
     return errors

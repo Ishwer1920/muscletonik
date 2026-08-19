@@ -87,7 +87,7 @@ REST_FRAMEWORK = {
 # origin, production locks to CLIENT_ORIGIN).
 CORS_ALLOW_CREDENTIALS = True
 if mt_env.IS_PRODUCTION:
-    CORS_ALLOWED_ORIGINS = [mt_env.CLIENT_ORIGIN]
+    CORS_ALLOWED_ORIGINS = mt_env.allowed_browser_origins()
 else:
     CORS_ALLOW_ALL_ORIGINS = True
 

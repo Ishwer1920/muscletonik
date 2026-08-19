@@ -14,8 +14,7 @@ async function checkoutApi(path, options) {
   // comes back 401 — silently refresh it using the long-lived refresh cookie and
   // retry once. This keeps the session alive without weakening auth.
   if (res.status === 401) {
-    const refreshed = await fetch(base + "/auth/refresh", { method: "POST", credentials: "include" }).catch(() => null);
-    if (refreshed && refreshed.ok) res = await send();
+    if (await mtRefreshSession()) res = await send();
   }
 
   const data = await res.json().catch(() => ({}));

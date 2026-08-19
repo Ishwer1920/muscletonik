@@ -28,8 +28,7 @@ async function payApi(path, options) {
   });
   let res = await send();
   if (res.status === 401) {
-    const refreshed = await fetch(base + "/auth/refresh", { method: "POST", credentials: "include" }).catch(() => null);
-    if (refreshed && refreshed.ok) res = await send();
+    if (await mtRefreshSession()) res = await send();
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

@@ -33,6 +33,7 @@ urlpatterns = [
     path("analytics/export", views_analytics.export_orders_csv),
 
     path("coupons", views_coupons.coupons_collection),
+    path("coupons/targets", views_coupons.coupon_targets),
     path("coupons/<str:coupon_id>", views_coupons.coupon_detail),
 
     path("reviews", views_reviews.reviews_collection),

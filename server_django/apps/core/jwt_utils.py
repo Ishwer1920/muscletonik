@@ -4,8 +4,10 @@ import jwt
 
 from . import env
 
-ACCESS_TOKEN_TTL = 15 * 60
-REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60
+# TTLs come from .env (see apps/core/env.py) so session length can be tuned on
+# the VPS without a redeploy. Defaults: 12h access, 30d refresh.
+ACCESS_TOKEN_TTL = env.ACCESS_TOKEN_TTL_MINUTES * 60
+REFRESH_TOKEN_TTL = env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60
 
 
 def _sign(payload, secret, ttl_seconds):

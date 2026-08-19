@@ -22,12 +22,10 @@ def _get_products_for_cart(items):
     return list(Product.objects(sku__in=ids, status="active"))
 
 
-def create_checkout_session(user_id, payload):
-    user = User.objects(id=user_id).only("name", "email", "addresses").first()
-    if not user:
-        raise ApiError("User not found", 404)
-
-    items = payload.get("items")
+def resolve_line_items(items):
+    """Turn the client's [{id, qty}] rows into priced line items backed by the
+    live catalog. Split out of create_checkout_session so the coupon-quote
+    endpoint prices a cart exactly the same way checkout does."""
     items = items if isinstance(items, list) else []
     if not items:
         raise ApiError("Your cart is empty", 400)
@@ -55,12 +53,28 @@ def create_checkout_session(user_id, payload):
             "quantity": item["quantity"],
             "lineTotal": pricing.round_money(product.sellingPrice * item["quantity"]),
         })
+    return line_items
+
+
+def create_checkout_session(user_id, payload):
+    user = User.objects(id=user_id).only("name", "email", "addresses").first()
+    if not user:
+        raise ApiError("User not found", 404)
+
+    line_items = resolve_line_items(payload.get("items"))
 
     subtotal = sum(li["lineTotal"] for li in line_items)
-    coupon = pricing.get_coupon_discount(subtotal, payload.get("couponCode"))
+    # Full evaluation, not just a rate lookup: scope (brand/category/product),
+    # min order, start/expiry, global cap and this customer's own usage all get
+    # a say, and a refused code comes back with the reason to show the shopper.
+    coupon = pricing.evaluate_coupon(
+        payload.get("couponCode"), line_items, user_id=user_id, subtotal=subtotal
+    )
     after_coupon = max(0, subtotal - coupon["amount"])
     has_physical = any(not li["product"].digital for li in line_items)
     shipping = pricing.shipping_charge(after_coupon) if has_physical else 0
+    if coupon["ok"] and coupon["freeShipping"]:
+        shipping = 0
     gst = pricing.gst_amount(after_coupon)
     total = after_coupon + shipping + gst
 
@@ -72,9 +86,14 @@ def create_checkout_session(user_id, payload):
         "user": user,
         "items": line_items,
         "shippingAddress": shipping_address,
+        "coupon": coupon,
         "summary": {
             "subtotal": subtotal, "discount": coupon["amount"], "shipping": shipping,
-            "gst": gst, "total": total, "couponCode": coupon["code"],
+            "gst": gst, "total": total, "couponCode": coupon["code"] if coupon["ok"] else "",
+            "couponApplied": bool(coupon["ok"] and coupon["code"]),
+            "couponMessage": coupon["reason"],
+            "couponFreeShipping": bool(coupon["ok"] and coupon["freeShipping"]),
+            "couponDetail": pricing.coupon_public_view(coupon.get("coupon")),
         },
     }
 
@@ -246,7 +265,9 @@ def verify_and_capture_payment(user_id, session, razorpay_order_id, razorpay_pay
             currency="INR", metadata=metadata,
         ).save()
 
-        pricing.mark_coupon_used(session["summary"]["couponCode"])
+        # Records the global count AND a per-customer row, so perUserLimit /
+        # firstOrderOnly can be enforced on the next order.
+        pricing.record_redemption(session.get("coupon") or {}, user_id, order_doc)
         plans = grant_plan_entitlements(user_id, session, order_doc, bmi_snapshot)
 
         return {"order": order_doc, "payment": payment_doc, "plans": plans}

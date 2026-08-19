@@ -36,9 +36,10 @@
       <div class="summary-box" id="cartSummaryWrap">
         <h3 style="font-size:16px;margin-bottom:14px;">Order Summary</h3>
         <div class="coupon-row">
-          <input type="text" id="couponInput" placeholder="Coupon code (try TONIK10)">
+          <input type="text" id="couponInput" placeholder="Coupon code" autocomplete="off" autocapitalize="characters">
           <button class="btn btn-dark btn-sm" onclick="applyCoupon()">Apply</button>
         </div>
+        <p class="coupon-note" id="couponNote"></p>
         <div class="summary-row"><span>Subtotal</span><span id="sumSubtotal"></span></div>
         <div class="summary-row"><span>Coupon Discount</span><span id="sumDiscount"></span></div>
         <div class="summary-row"><span>GST (5%)</span><span id="sumGst"></span></div>

@@ -26,8 +26,7 @@ async function apiRequest(path, options) {
   let res = await send();
   // Access token expired -> silently refresh using the refresh cookie, retry once.
   if (res.status === 401 && !isAuthEndpoint) {
-    const refreshed = await fetch(base + "/auth/refresh", { method: "POST", credentials: "include" }).catch(() => null);
-    if (refreshed && refreshed.ok) res = await send();
+    if (await mtRefreshSession()) res = await send();
   }
 
   const data = await res.json().catch(() => ({}));
