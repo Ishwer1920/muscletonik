@@ -1,8 +1,11 @@
+import logging
+
 import jwt as pyjwt
 from rest_framework.authentication import BaseAuthentication
-from rest_framework.exceptions import AuthenticationFailed
 
 from apps.core.jwt_utils import verify_access_token
+
+logger = logging.getLogger(__name__)
 
 
 class AuthClaims:
@@ -24,9 +27,7 @@ class AuthClaims:
 
 class CookieOrHeaderJWTAuthentication(BaseAuthentication):
     """Mirror of middleware/auth.middleware.js#requireAuth: cookie takes
-    priority over the Authorization header. Returns None (unauthenticated,
-    no error) when no token is present at all, so public routes still work;
-    raises only when a token IS present but fails to verify."""
+    priority over the Authorization header."""
 
     def authenticate(self, request):
         header = request.META.get("HTTP_AUTHORIZATION", "")
@@ -38,8 +39,23 @@ class CookieOrHeaderJWTAuthentication(BaseAuthentication):
 
         try:
             payload = verify_access_token(token)
-        except pyjwt.PyJWTError:
-            raise AuthenticationFailed("Invalid or expired session")
+        except pyjwt.PyJWTError as exc:
+            # An expired or unreadable token means "not signed in", not "you
+            # are forbidden". Raising here used to fail the whole request, so
+            # a stale cookie made even PUBLIC endpoints like /api/catalog
+            # return an error and the storefront rendered nothing. Falling
+            # through as anonymous lets public routes work, while protected
+            # ones raise NotAuthenticated -> 401 -> the browser silently
+            # refreshes and retries.
+            logger.debug("Ignoring unusable access token: %s", exc)
+            return None
 
         claims = AuthClaims(payload)
         return (claims, token)
+
+    def authenticate_header(self, request):
+        """Without this DRF has no WWW-Authenticate header to send, so it
+        downgrades every 401 to a 403. The frontend only retries a refresh on
+        401, so an expired session surfaced as a dead 403 that no amount of
+        waiting recovered from — the "logged out after a few minutes" bug."""
+        return 'Bearer realm="api"'
