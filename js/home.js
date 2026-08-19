@@ -169,11 +169,11 @@ function renderHeroSlides() {
 }
 
 // Promo artwork shown in the hero offer card when nothing is configured in
-// Admin -> Banners yet. Drop the file at public_html/uploads/ under this exact
-// name and it appears; set `image` to "" to go back to the designed
-// "10% extra off" panel. Anything saved in the admin panel overrides this.
+// Admin -> Banners yet. The file lives in public_html/uploads/banners/; set
+// `image` to "" to go back to the designed "10% extra off" panel. Anything
+// saved in the admin panel overrides this.
 const HERO_OFFER_FALLBACK = {
-  image: "/uploads/hero-offer.jpg",
+  image: "/uploads/banners/ad.jpeg",
   href: "offers.html",
   alt: "Launching offer: buy 3 GNC products for Rs.2499, free T-shirt with bill"
 };
