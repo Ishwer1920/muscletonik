@@ -168,14 +168,24 @@ function renderHeroSlides() {
   applyHeroOffset(0);
 }
 
+// Promo artwork shown in the hero offer card when nothing is configured in
+// Admin -> Banners yet. Drop the file at public_html/uploads/ under this exact
+// name and it appears; set `image` to "" to go back to the designed
+// "10% extra off" panel. Anything saved in the admin panel overrides this.
+const HERO_OFFER_FALLBACK = {
+  image: "/uploads/hero-offer.jpg",
+  href: "offers.html",
+  alt: "Launching offer: buy 3 GNC products for Rs.2499, free T-shirt with bill"
+};
+
 // The offer artwork is one setting for the whole hero, not per slide, so it
 // is copied onto every slide here. A slide may still override it.
 function withOfferCard(slide, hero) {
   return {
     ...slide,
-    cardImage: slide.cardImage || hero.cardImage || "",
-    cardAlt: slide.cardAlt || hero.cardAlt || "",
-    cardHref: slide.cardHref || hero.cardHref || ""
+    cardImage: slide.cardImage || hero.cardImage || HERO_OFFER_FALLBACK.image || "",
+    cardAlt: slide.cardAlt || hero.cardAlt || HERO_OFFER_FALLBACK.alt || "",
+    cardHref: slide.cardHref || hero.cardHref || HERO_OFFER_FALLBACK.href || ""
   };
 }
 
