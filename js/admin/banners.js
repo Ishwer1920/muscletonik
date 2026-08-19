@@ -218,7 +218,22 @@
         ${field("Background image URL", "backgroundImage", h.backgroundImage, "text", "Leave blank to use the gradient below.")}
         ${field("Gradient", "gradient", h.gradient, "text", "Any valid CSS background value.")}
         ${field("Overlay opacity", "overlay", h.overlay ?? 55, "number", "0–100. Darkens the image for text contrast.")}
-      </div>`;
+      </div>
+      <div class="a-field" style="margin-top:14px;">
+        <label>Offer card image <span style="color:var(--a-text-soft);font-weight:400;">(the square box beside the hero text)</span></label>
+        <div style="display:flex;gap:8px;">
+          <input class="a-input" name="cardImage" value="${esc(h.cardImage || "")}" placeholder="https://… or /uploads/banners/…">
+          <button class="a-btn" type="button" id="heroCardUpload">Upload</button>
+        </div>
+        <small style="color:var(--a-text-soft);">Best around 1000 × 1000 (square). Leave blank to show the designed "10% extra off" panel instead.</small>
+      </div>
+      <div class="grid-2" style="grid-template-columns:1fr 1fr;">
+        ${field("Offer card link", "cardHref", h.cardHref, "text", "Where clicking the artwork goes, e.g. offers.html")}
+        ${field("Offer card alt text", "cardAlt", h.cardAlt, "text", "Describes the artwork for screen readers.")}
+      </div>
+      ${h.cardImage ? `<div style="margin-top:12px;max-width:240px;"><img src="${esc(h.cardImage)}" alt="" style="width:100%;border-radius:12px;display:block;"></div>` : ""}`;
+
+    document.getElementById("heroCardUpload").addEventListener("click", pickHeroCardImage);
 
     renderSlides();
     renderBrandStrip();
@@ -246,6 +261,31 @@
     slides[index][field] = url;
     renderSlides();
     AdminShell.toast("Banner uploaded");
+  }
+
+  // Same upload endpoint as the banner slides, but the URL lands on the hero
+  // object rather than a slide, so it needs its own picker.
+  function pickHeroCardImage() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/png,image/webp,image/gif";
+    input.addEventListener("change", async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        const fd = new FormData();
+        fd.append("images", file);
+        const res = await AdminShell.api("/admin/uploads/banners", { method: "POST", body: fd });
+        const url = res.files && res.files[0] && res.files[0].url;
+        if (!url) throw new Error("Upload returned no file URL.");
+        const box = document.querySelector('#heroForm [name="cardImage"]');
+        if (box) box.value = url;
+        AdminShell.toast("Image uploaded — press Save to publish it");
+      } catch (err) {
+        AdminShell.toast(err.message || "Upload failed", "err");
+      }
+    });
+    input.click();
   }
 
   function pickFile(index, field) {

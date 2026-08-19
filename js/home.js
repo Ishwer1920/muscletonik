@@ -105,6 +105,25 @@ function richSlideMarkup(slide, index) {
         </div>
         <div class="hero-visual">
           <div class="hero-orb"></div>
+          ${offerCardMarkup(slide, accentClass)}
+        </div>
+      </div>
+    </article>`;
+}
+
+// The square card beside the hero copy. Given an artwork URL it becomes a
+// plain clickable banner; with none set it falls back to the designed
+// "10% extra off" panel. Both come from Admin -> Banners -> Designed hero.
+function offerCardMarkup(slide, accentClass) {
+  if (slide.cardImage) {
+    const src = escapeHtml(slide.cardImage);
+    const alt = escapeHtml(slide.cardAlt || "Current offer");
+    const img = `<img src="${src}" alt="${alt}" loading="lazy">`;
+    return slide.cardHref
+      ? `<a class="glass-card hero-offer-card" href="${escapeHtml(slide.cardHref)}">${img}</a>`
+      : `<div class="glass-card hero-offer-card">${img}</div>`;
+  }
+  return `
           <div class="glass-card ${accentClass}">
             <div class="pct">10%</div>
             <div class="lbl">extra off on first order</div>
@@ -120,10 +139,7 @@ function richSlideMarkup(slide, index) {
               <span>Fast checkout</span>
               <span>Mobile ready</span>
             </div>
-          </div>
-        </div>
-      </div>
-    </article>`;
+          </div>`;
 }
 
 function renderHeroSlides() {
@@ -132,7 +148,7 @@ function renderHeroSlides() {
   const slider = document.querySelector(".hero-slider");
   if (!root || !dots) return;
   const content = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.siteContent) || SITE_CONTENT || {};
-  const slides = resolveHeroSlides(content);
+  const slides = resolveHeroSlides(content).map(slide => withOfferCard(slide, content.hero || {}));
 
   // An all-artwork hero drops the dark gradient chrome and hugs the banner,
   // the way HealthKart's does. A mixed/rich hero keeps the designed backdrop.
@@ -150,6 +166,17 @@ function renderHeroSlides() {
 
   heroIndex = 0;
   applyHeroOffset(0);
+}
+
+// The offer artwork is one setting for the whole hero, not per slide, so it
+// is copied onto every slide here. A slide may still override it.
+function withOfferCard(slide, hero) {
+  return {
+    ...slide,
+    cardImage: slide.cardImage || hero.cardImage || "",
+    cardAlt: slide.cardAlt || hero.cardAlt || "",
+    cardHref: slide.cardHref || hero.cardHref || ""
+  };
 }
 
 function resolveHeroSlides(content) {
