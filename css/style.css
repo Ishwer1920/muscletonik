@@ -138,7 +138,20 @@ header.site.scrolled{
 /* Collection shortcuts are a convenience, not the primary nav: below a
    comfortable desktop width they fold into the Products mega menu (and the
    mobile drawer), both of which still list them. */
+/* Tighten the nav before dropping anything: on a typical 1280-1500px laptop
+   all seven links fit once the spacing and type come down a notch. Hiding them
+   at 1500px was too eager — it hid the collections on most real screens. */
 @media (max-width:1500px){
+  .nav-main{gap:6px;}
+  .nav-main a.nav-link{font-size:13px;padding:9px 8px;gap:4px;}
+}
+@media (max-width:1240px){
+  .nav-main{gap:3px;}
+  .nav-main a.nav-link{font-size:12.5px;padding:8px 6px;}
+}
+/* Below this the row genuinely cannot hold them; they stay reachable from the
+   Products mega menu and the mobile drawer. */
+@media (max-width:1120px){
   .nav-main .nav-collection{display:none;}
 }
 .nav-main > .nav-item{position:relative;}
