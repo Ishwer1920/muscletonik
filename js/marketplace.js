@@ -8,6 +8,8 @@ let state = {
   minRating: 0,
   maxPrice: 5000,
   sort: "popularity",
+  // "crazy-deals" | "near-expiry" | "new-arrivals" | "" (all products)
+  collection: "",
   search: "",
   page: 1,
   perPage: 20
@@ -62,7 +64,7 @@ function buildFilters() {
   });
 
   document.getElementById("clearFilters").addEventListener("click", () => {
-    state = { categories: [], brands: [], minRating: 0, maxPrice: 5000, sort: "popularity", search: state.search, page: 1, perPage: 20 };
+    state = { categories: [], brands: [], minRating: 0, maxPrice: 5000, sort: "popularity", search: state.search, collection: state.collection, page: 1, perPage: 20 };
     document.getElementById("priceRange").value = 5000;
     document.getElementById("priceLabel").textContent = formatINR(5000);
     document.querySelectorAll('input[type=checkbox]').forEach(c => c.checked = false);
@@ -95,8 +97,18 @@ function closeFiltersPanel() {
   document.body.style.overflow = "";
 }
 
+// Merchandising collections, keyed to the product flags served by the API.
+// Same names the backend uses for ?collection=, so a link works either way.
+const COLLECTIONS = {
+  "crazy-deals":  { flag: "crazyDeal",  title: "Crazy Deals",  blurb: "Hand-picked price drops while stock lasts." },
+  "near-expiry":  { flag: "nearExpiry", title: "Near Expiry",  blurb: "Genuine stock close to its best-before date, at a lower price." },
+  "new-arrivals": { flag: "newArrival", title: "New Arrivals", blurb: "The latest additions to the store." }
+};
+
 function filteredSorted() {
+  const collection = COLLECTIONS[state.collection];
   let list = PRODUCTS.filter(p => {
+    if (collection && !p[collection.flag]) return false;
     if (state.categories.length && !state.categories.includes(p.category)) return false;
     if (state.brands.length && !state.brands.includes(p.brand)) return false;
     if (p.rating < state.minRating) return false;
@@ -176,6 +188,21 @@ document.addEventListener("DOMContentLoaded", async function () {
   const cat = getParam("category");
   const brand = getParam("brand");
   const search = getParam("search");
+  const collection = getParam("collection");
+  if (collection && COLLECTIONS[collection]) {
+    state.collection = collection;
+    const meta = COLLECTIONS[collection];
+    const heading = document.querySelector(".page-head h1");
+    const crumb = document.querySelector(".page-head .breadcrumb span");
+    if (heading) heading.textContent = meta.title;
+    if (crumb) crumb.textContent = meta.title;
+    document.title = meta.title + " · Muscle Tonik";
+    const banner = document.getElementById("searchBanner");
+    if (banner) {
+      banner.textContent = meta.blurb;
+      banner.style.display = "block";
+    }
+  }
   if (cat) state.categories = [cat];
   if (brand) state.brands = [brand];
   if (search) {

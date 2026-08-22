@@ -18,7 +18,9 @@ window.MTCheckout.cart = (function () {
   // same evaluator checkout itself uses), so brand-scoped codes, minimum-order
   // rules and per-customer limits are honoured here instead of being invisible
   // to the browser.
-  var GST_RATE = 0.05;
+  // GST is not defined here — it comes from Admin -> Tax & GST via
+  // window.MT_TAX (data.js), per product, so the rate can change without a
+  // code edit. Shipping thresholds remain fixed policy.
   var FREE_SHIPPING_OVER = 599;
   var SHIPPING_FEE = 79;
 
@@ -45,7 +47,9 @@ window.MTCheckout.cart = (function () {
       color: product.color || "#ff7a00",
       qty: Math.max(1, Math.round(Number.isFinite(qty) ? qty : 1)),
       unitPrice: utils.toNumber(product.price),
-      oldPrice: utils.toNumber(product.oldPrice)
+      oldPrice: utils.toNumber(product.oldPrice),
+      // null = no override; the store default from Admin -> Tax & GST applies.
+      gstRate: product.gstRate == null || product.gstRate === "" ? null : utils.toNumber(product.gstRate)
     };
   }
 
@@ -122,7 +126,13 @@ window.MTCheckout.cart = (function () {
     var code = normalizeCoupon(quote ? quote.code : options.couponCode);
     var discount = quote ? Math.min(quote.discount || 0, subtotal) : 0;
     var afterCoupon = subtotal - discount;
-    var gst = Math.round(afterCoupon * GST_RATE);
+    // Each line taxed at its own product's rate; coupon spread proportionally,
+    // matching pricing.gst_for_line_items() on the server.
+    var gst = window.MT_TAX
+      ? window.MT_TAX.forLines(items.map(function (i) {
+          return { product: { gstRate: i.gstRate }, lineTotal: Math.round(i.unitPrice * i.qty) };
+        }), discount)
+      : 0;
     var shipping = (afterCoupon > FREE_SHIPPING_OVER || afterCoupon === 0) ? 0 : SHIPPING_FEE;
     if (quote && quote.freeShipping) shipping = 0;
     var total = afterCoupon + gst + shipping;
@@ -134,7 +144,12 @@ window.MTCheckout.cart = (function () {
       couponFreeShipping: !!(quote && quote.freeShipping),
       discount: discount,
       gst: gst,
-      gstRate: GST_RATE,
+      // Kept for the summary label; when a cart mixes rates this is the
+      // store default and ui.js falls back to an unlabelled "GST" row.
+      gstRate: window.MT_TAX ? window.MT_TAX.defaultRate() / 100 : 0,
+      gstLabel: window.MT_TAX
+        ? window.MT_TAX.label(items.map(function (i) { return { product: { gstRate: i.gstRate } }; }))
+        : "GST",
       shipping: shipping,
       total: total,
       itemCount: items.reduce(function (n, i) { return n + i.qty; }, 0)

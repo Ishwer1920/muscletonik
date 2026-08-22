@@ -315,10 +315,13 @@ def forgot_password_lookup(request):
             "message": "This account has no email or mobile number on file. Please contact support.",
         }, status=400)
 
+    # The account holder's real name is deliberately NOT returned. Anyone can
+    # call this endpoint with a guessed address, and echoing the name would
+    # hand out personal data to whoever asks. Masked destinations are enough
+    # for the customer to recognise their own account.
     return Response({
         "message": "Choose where you want the verification code sent.",
         "identifier": identifier,
-        "name": user.name,
         "channels": channels,
     })
 

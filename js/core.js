@@ -322,6 +322,21 @@ function productImage(p) {
     "</svg>";
 }
 
+// Merchandising badges on a product card. Ordered by how much they should
+// pull the eye, and capped at the two that matter so a card never turns into
+// a wall of pills.
+function productFlagBadges(p) {
+  const out = [];
+  if (p.crazyDeal) out.push('<span class="badge badge-crazy">CRAZY DEAL</span>');
+  if (p.newArrival) out.push('<span class="badge badge-new">NEW</span>');
+  if (p.nearExpiry) {
+    const days = Number(p.daysToExpiry);
+    out.push('<span class="badge badge-expiry">' +
+      (isFinite(days) && days > 0 ? "EXPIRES IN " + days + "D" : "NEAR EXPIRY") + "</span>");
+  }
+  return out.slice(0, 2).join("");
+}
+
 function starString(rating) {
   const full = Math.round(rating);
   return '<span class="s">' + "★".repeat(full) + "☆".repeat(5 - full) + "</span>";
@@ -397,7 +412,7 @@ function renderProductCard(p) {
   return (
     '<div class="prod-card reveal">' +
       '<a class="prod-media" style="background:' + p.color + '18" href="product.html?id=' + p.id + '">' +
-        '<div class="badges"><span class="badge badge-orange">' + off + '% OFF</span>' + (p.badge ? '<span class="badge badge-dark">' + p.badge + "</span>" : "") + "</div>" +
+        '<div class="badges">' + productFlagBadges(p) + '<span class="badge badge-orange">' + off + '% OFF</span>' + (p.badge ? '<span class="badge badge-dark">' + p.badge + "</span>" : "") + "</div>" +
         '<button class="prod-wish' + (wished ? " active" : "") + '" data-wish="' + p.id + '" onclick="event.preventDefault();Wishlist.toggle(' + p.id + ')" aria-label="Toggle wishlist">' + icon("heart", 17) + "</button>" +
         '<div class="prod-media-art">' + productImage(p) + "</div>" +
       "</a>" +
@@ -511,8 +526,10 @@ function renderMegaProductsMenu() {
           <span class="mega-label">Quick Actions</span>
           <div class="mega-links quick-links">
             <a href="marketplace.html">Browse all products</a>
+            <a href="marketplace.html?collection=crazy-deals">Crazy Deals</a>
+            <a href="marketplace.html?collection=new-arrivals">New Arrivals</a>
+            <a href="marketplace.html?collection=near-expiry">Near Expiry</a>
             <a href="marketplace.html?sort=discount">Highest discounts</a>
-            <a href="marketplace.html?sort=newest">Newest arrivals</a>
             <a href="offers.html">Limited-time offers</a>
           </div>
         </div>
@@ -602,6 +619,9 @@ function headerHTML() {
           <a class="nav-link" href="brands.html">Brands ${icon("trend", 12)}</a>
           ${renderMegaBrandsMenu()}
         </div>
+        <a class="nav-link nav-collection" href="marketplace.html?collection=crazy-deals">Crazy Deals</a>
+        <a class="nav-link nav-collection" href="marketplace.html?collection=new-arrivals">New Arrivals</a>
+        <a class="nav-link nav-collection" href="marketplace.html?collection=near-expiry">Near Expiry</a>
         <a class="nav-link" href="offers.html">Deals</a>
       </nav>
       <div class="header-search-wrap">
@@ -640,7 +660,9 @@ function headerHTML() {
         <div class="acc-body"><div class="acc-body-inner">
           <a href="marketplace.html">All Products</a>
           <a href="marketplace.html?sort=popularity">Best Sellers</a>
-          <a href="marketplace.html?sort=newest">New Arrivals</a>
+          <a href="marketplace.html?collection=new-arrivals">New Arrivals</a>
+          <a href="marketplace.html?collection=crazy-deals">Crazy Deals</a>
+          <a href="marketplace.html?collection=near-expiry">Near Expiry</a>
           <a href="offers.html">Deals</a>
           ${getTopProducts(4).map(p => '<a href="product.html?id=' + p.id + '">' + p.name + "</a>").join("")}
         </div></div>
@@ -651,6 +673,9 @@ function headerHTML() {
           ${BRANDS.map(b => '<a href="marketplace.html?brand=' + b.id + '">' + b.name + "</a>").join("")}
         </div></div>
       </div>
+      <a href="marketplace.html?collection=crazy-deals">Crazy Deals</a>
+      <a href="marketplace.html?collection=new-arrivals">New Arrivals</a>
+      <a href="marketplace.html?collection=near-expiry">Near Expiry</a>
       <a href="offers.html">Deals</a>
       <a href="cart.html">Cart</a>
       <a href="wishlist.html">Wishlist</a>

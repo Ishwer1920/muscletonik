@@ -61,7 +61,15 @@ function renderSummary() {
   const subtotal = Cart.total();
   const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
   const afterCoupon = Math.max(0, subtotal - couponDiscount);
-  const gst = Math.round(afterCoupon * 0.05);
+  // Tax each line at its own product's rate (Admin -> Tax & GST); the label
+  // moves with it so the customer never sees "GST (5%)" beside an 18% charge.
+  const taxLines = Cart.items().map(item => {
+    const product = getProductById(item.id);
+    return product ? { product, lineTotal: product.price * item.qty } : null;
+  }).filter(Boolean);
+  const gst = MT_TAX.forLines(taxLines, couponDiscount);
+  const gstLabel = document.getElementById("sumGstLabel");
+  if (gstLabel) gstLabel.textContent = MT_TAX.label(taxLines);
   let shipping = afterCoupon > 599 || afterCoupon === 0 ? 0 : 79;
   if (appliedCoupon && appliedCoupon.freeShipping) shipping = 0;
   const total = afterCoupon + gst + shipping;
@@ -81,8 +89,23 @@ function renderCouponNote() {
     note.className = "coupon-note";
     return;
   }
-  note.textContent = appliedCoupon.message || "";
+  // Applied state: show the code, what it saved, and a way back out. The
+  // server re-prices on every apply, so removing is purely a local reset.
   note.className = "coupon-note ok";
+  note.innerHTML =
+    '<span class="coupon-applied-code">' + escapeHtml(appliedCoupon.code || "Coupon") + " applied</span> " +
+    '<span class="coupon-applied-msg">' + escapeHtml(appliedCoupon.message || "") + "</span>" +
+    '<button type="button" class="coupon-remove" onclick="removeCoupon()">Remove</button>';
+}
+
+// Drop the coupon and re-price. Nothing is trusted from here: the discount is
+// only ever whatever the API returned for the current cart.
+function removeCoupon() {
+  appliedCoupon = null;
+  const input = document.getElementById("couponInput");
+  if (input) input.value = "";
+  renderSummary();
+  showToast("Coupon removed");
 }
 
 // Ask the API to price the code against this exact cart. The response carries

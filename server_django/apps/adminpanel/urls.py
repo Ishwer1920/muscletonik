@@ -3,7 +3,7 @@ from django.urls import path
 from . import (
     views_analytics, views_content, views_coupons, views_customers,
     views_dashboard, views_inventory, views_products, views_reviews,
-    views_settings, views_taxonomy, views_uploads,
+    views_banners, views_settings, views_taxonomy, views_uploads,
 )
 
 urlpatterns = [
@@ -16,6 +16,8 @@ urlpatterns = [
     path("products", views_products.products_collection),
     path("products/<str:product_id>", views_products.product_detail),
     path("products/<str:product_id>/status", views_products.set_product_status),
+    path("products/<str:product_id>/tax", views_products.set_product_gst),
+    path("products/<str:product_id>/merchandising", views_products.set_product_merchandising),
 
     path("taxonomy", views_taxonomy.list_taxonomy),
     path("taxonomy/brands", views_taxonomy.create_brand),
@@ -39,6 +41,12 @@ urlpatterns = [
     path("reviews", views_reviews.reviews_collection),
     path("reviews/<str:review_id>", views_reviews.review_detail),
 
+    # Homepage slideshow banners
+    path("banners", views_banners.banners_collection),
+    path("banners/reorder", views_banners.reorder_banners),
+    path("banners/options", views_banners.banner_options),
+    path("banners/<str:banner_id>", views_banners.banner_detail),
+    path("banners/<str:banner_id>/toggle", views_banners.toggle_banner),
     path("settings", views_settings.list_settings),
     path("settings/<str:key>", views_settings.setting_detail),
 

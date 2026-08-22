@@ -93,7 +93,10 @@ window.MTCheckout.ui = (function () {
       rows.push('<div class="co-row co-row-note" style="color:var(--red,#d33);font-size:12px;"><span>' +
         esc(summary.couponMessage) + "</span><span></span></div>");
     }
-    rows.push('<div class="co-row"><span>GST (' + Math.round(summary.gstRate * 100) + '%)</span><span>' + money(summary.gst) + "</span></div>");
+    // gstLabel already reads "GST (18%)" / "GST (mixed rates)" from the shared
+    // helper; the old rate maths stays as the fallback for a stored summary.
+    var gstLabel = summary.gstLabel || ("GST (" + Math.round((summary.gstRate || 0) * 100) + "%)");
+    rows.push('<div class="co-row"><span>' + esc(gstLabel) + "</span><span>" + money(summary.gst) + "</span></div>");
     rows.push('<div class="co-row"><span>Delivery</span><span>' +
       (summary.shipping === 0 ? '<em class="co-free">FREE</em>' : money(summary.shipping)) + "</span></div>");
     rows.push('<div class="co-row co-row-total"><span>Total</span><span>' + money(summary.total) + "</span></div>");

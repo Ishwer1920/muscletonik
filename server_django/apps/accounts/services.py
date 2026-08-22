@@ -342,7 +342,12 @@ def issue_reset_otp(user, channel):
             expires = expires.replace(tzinfo=timezone.utc)
 
         still_open = expires and expires > now
-        if still_open:
+        # Switching channel is a fresh request, not a resend: a customer whose
+        # email failed (or who mistyped the channel) must be able to try SMS
+        # straight away instead of staring at a 60-second timer. The overall
+        # send cap below still applies, so this cannot be used to spam.
+        same_channel = (existing.channel or "email") == channel
+        if still_open and same_channel:
             if last_sent:
                 waited = (now - last_sent).total_seconds()
                 if waited < env.OTP_RESEND_SECONDS:
@@ -352,6 +357,7 @@ def issue_reset_otp(user, channel):
                         ),
                         429,
                     )
+        if still_open:
             resend_count = existing.resendCount or 0
             if resend_count >= env.OTP_MAX_SENDS:
                 raise ApiError(

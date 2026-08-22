@@ -26,6 +26,17 @@ def products(request):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+def banners(request):
+    """Public feed of live slideshow banners — cheap enough to poll on its own
+    without pulling the whole catalogue."""
+    return Response({
+        "banners": services.live_banners(),
+        "slideshowSettings": services.slideshow_settings(),
+    })
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
 def product_by_id(request, product_id):
     try:
         product = services.get_product_details(product_id)

@@ -115,6 +115,21 @@ let HOMEPAGE_ORDER = [];
 // mega-menus never surface a plan — but the cart can still price one by id.
 let ALL_PRODUCTS = [];
 
+// GST, mirrored from the server. The rate is configured in ONE place —
+// Admin -> Tax & GST — and arrives on the catalog payload as taxSettings.
+// A product may carry its own gstRate override; blank/null means "default".
+// The 5 here is only the pre-API fallback: the server always re-computes the
+// real tax at checkout, so this drives display and estimates only.
+let TAX_SETTINGS = { gstRate: 5 };
+
+// Slideshow banners from the Banner collection (Admin -> Slideshow). Empty
+// means "none configured" and the hero falls back to its legacy slides.
+let BANNERS = [];
+
+// How the hero slideshow behaves — set in Admin -> Slideshow, mirrored from
+// the API. These defaults only apply before the catalogue has loaded.
+let SLIDESHOW_SETTINGS = { intervalSeconds: 6.5, autoplay: true, pauseOnHover: true };
+
 function getProductById(id) {
   const n = Number(id);
   return PRODUCTS.find(p => p.id === n) || ALL_PRODUCTS.find(p => p.id === n);
@@ -190,6 +205,13 @@ async function hydrateCatalogFromApi() {
       // finds them via ALL_PRODUCTS so the cart can resolve a purchased plan.
       PRODUCTS = payload.products.filter(p => !p.hidden);
     }
+    if (payload && Array.isArray(payload.banners)) BANNERS = payload.banners;
+    if (payload && payload.slideshowSettings && typeof payload.slideshowSettings === "object") {
+      SLIDESHOW_SETTINGS = payload.slideshowSettings;
+    }
+    if (payload && payload.taxSettings && typeof payload.taxSettings === "object") {
+      TAX_SETTINGS = payload.taxSettings;
+    }
     if (payload && Array.isArray(payload.reviews)) REVIEWS = payload.reviews;
     if (payload && Array.isArray(payload.transformations)) TRANSFORMATIONS = payload.transformations;
     if (payload && Array.isArray(payload.heroSlides)) HERO_SLIDES = payload.heroSlides;
@@ -207,7 +229,78 @@ async function hydrateCatalogFromApi() {
 
 const MT_CATALOG_READY = hydrateCatalogFromApi();
 
+// --- GST helpers: the storefront's single source of truth for tax ---------
+// Kept deliberately in step with apps/checkout/pricing.py so the figure shown
+// in the cart matches the figure the server charges.
+
+function mtGstDefaultRate() {
+  const rate = Number(TAX_SETTINGS && TAX_SETTINGS.gstRate);
+  return isFinite(rate) && rate >= 0 && rate <= 100 ? rate : 5;
+}
+
+function mtGstEnabled() {
+  return !(TAX_SETTINGS && TAX_SETTINGS.gstEnabled === false);
+}
+
+function mtCleanPercent(value) {
+  if (value == null || value === "") return null;
+  const percent = Number(value);
+  return isFinite(percent) && percent >= 0 && percent <= 100 ? percent : null;
+}
+
+// Percent for one product, by the documented priority:
+//   product override -> brand override -> global default
+// Mirrors pricing.product_gst_rate() so the cart and the server agree.
+function mtGstRateFor(product) {
+  const own = mtCleanPercent(product == null ? null : product.gstRate);
+  if (own !== null) return own;
+
+  const brandId = product && product.brand ? String(product.brand).trim().toLowerCase() : "";
+  if (brandId) {
+    const brand = (BRANDS || []).find(b => b && String(b.id).trim().toLowerCase() === brandId);
+    const brandRate = mtCleanPercent(brand ? brand.gstRate : null);
+    if (brandRate !== null) return brandRate;
+  }
+
+  return mtGstDefaultRate();
+}
+
+// Total GST for a set of lines, each taxed at its own product's rate. A
+// cart-wide coupon is spread across lines in proportion to their value, which
+// is exactly what pricing.gst_for_line_items() does server-side.
+function mtGstForLines(lines, discount) {
+  if (!mtGstEnabled()) return 0;
+  const rows = (lines || []).filter(Boolean);
+  if (!rows.length) return 0;
+  const subtotal = rows.reduce((sum, row) => sum + Math.round(Number(row.lineTotal) || 0), 0);
+  if (subtotal <= 0) return 0;
+  const spread = Math.min(Math.round(Number(discount) || 0), subtotal);
+  return rows.reduce((sum, row) => {
+    const lineTotal = Math.round(Number(row.lineTotal) || 0);
+    const share = spread ? Math.round(spread * lineTotal / subtotal) : 0;
+    const taxable = Math.max(0, lineTotal - share);
+    return sum + Math.round(taxable * mtGstRateFor(row.product) / 100);
+  }, 0);
+}
+
+// A label like "GST (5%)", or "GST (mixed)" when the cart spans rates.
+function mtGstLabel(lines) {
+  if (!mtGstEnabled()) return "GST (not applicable)";
+  const rows = (lines || []).filter(Boolean);
+  if (!rows.length) return "GST (" + mtGstDefaultRate() + "%)";
+  const rates = rows.map(row => mtGstRateFor(row.product));
+  const first = rates[0];
+  return rates.every(r => r === first) ? "GST (" + first + "%)" : "GST (mixed rates)";
+}
+
 if (typeof window !== "undefined") {
+  window.MT_TAX = {
+    defaultRate: mtGstDefaultRate,
+    enabled: mtGstEnabled,
+    rateFor: mtGstRateFor,
+    forLines: mtGstForLines,
+    label: mtGstLabel
+  };
   window.MT_API_BASE = getApiBase();
   window.mtRefreshSession = mtRefreshSession;
   window.MT_CATALOG_READY = MT_CATALOG_READY;
@@ -219,6 +312,8 @@ if (typeof window !== "undefined") {
     get reviews() { return REVIEWS; },
     get transformations() { return TRANSFORMATIONS; },
     get heroSlides() { return HERO_SLIDES; },
+    get banners() { return BANNERS; },
+    get slideshowSettings() { return SLIDESHOW_SETTINGS; },
     get homepageSections() { return HOMEPAGE_SECTIONS; },
     get homepageOrder() { return HOMEPAGE_ORDER; },
     get siteContent() { return SITE_CONTENT; },

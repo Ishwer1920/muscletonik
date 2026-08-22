@@ -102,6 +102,20 @@ def update_brand(brand_id, patch=None, email=""):
         next_brand["desc"] = patch["desc"].strip()
     if isinstance(patch.get("logo"), str):
         next_brand["logo"] = patch["logo"].strip()
+    # Brand-level GST override (percent). "" / null clears it so the brand's
+    # products fall through to the store default. See pricing.product_gst_rate.
+    if "gstRate" in patch:
+        raw = patch.get("gstRate")
+        if raw is None or str(raw).strip() == "":
+            next_brand.pop("gstRate", None)
+        else:
+            try:
+                percent = float(raw)
+            except (TypeError, ValueError):
+                raise ApiError("GST rate must be a number.", 400)
+            if percent < 0 or percent > 100:
+                raise ApiError("GST rate must be between 0 and 100.", 400)
+            next_brand["gstRate"] = percent
     updated = list(brands)
     updated[index] = next_brand
     _write_list(BRANDS_KEY, updated, email)

@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime, timezone
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -19,17 +20,41 @@ EDITABLE = [
     "protein", "calories", "servings", "flavor", "ingredients", "mrp", "sellingPrice",
     "stock", "rating", "reviewCount", "featured", "trending", "deal", "bestSeller",
     "newArrival", "weight", "status", "seoTitle", "seoDescription", "images", "galleryImages",
+    "gstRate", "crazyDeal", "crazyDealPrice", "nearExpiry", "expiryDate", "arrivalDate",
 ]
 
 # Mongoose auto-casts numeric/boolean strings from multipart form bodies;
 # mongoengine does not, so admin product uploads (always multipart) need it
 # done explicitly or every FloatField/IntField/BooleanField save fails.
-FLOAT_FIELDS = {"mrp", "sellingPrice", "rating"}
+# gstRate is nullable — "" clears the override, handled in _cast_field.
+FLOAT_FIELDS = {"mrp", "sellingPrice", "rating", "gstRate", "crazyDealPrice"}
 INT_FIELDS = {"calories", "servings", "stock", "reviewCount"}
-BOOL_FIELDS = {"featured", "trending", "deal", "bestSeller", "newArrival"}
+BOOL_FIELDS = {"featured", "trending", "deal", "bestSeller", "newArrival", "crazyDeal", "nearExpiry"}
+DATE_FIELDS = {"expiryDate", "arrivalDate"}
+
+
+def _parse_date(value):
+    """Accept an ISO date/datetime from the admin form; "" clears the field."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    text = text.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        try:
+            parsed = datetime.strptime(text[:10], "%Y-%m-%d")
+        except ValueError:
+            return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def _cast_field(key, value):
+    if key in DATE_FIELDS:
+        return _parse_date(value)
+    if key == "gstRate" and (value is None or str(value).strip() == ""):
+        # Blank means "no override" — inherit the store default.
+        return None
     if key in FLOAT_FIELDS:
         return float(value)
     if key in INT_FIELDS:
@@ -104,6 +129,10 @@ def admin_view(p):
         "featured": p.featured, "trending": p.trending, "deal": p.deal,
         "bestSeller": p.bestSeller, "newArrival": p.newArrival, "weight": p.weight,
         "status": p.status, "seoTitle": p.seoTitle, "seoDescription": p.seoDescription,
+        "gstRate": p.gstRate, "crazyDeal": p.crazyDeal, "crazyDealPrice": p.crazyDealPrice,
+        "nearExpiry": p.nearExpiry, "newArrival": p.newArrival,
+        "expiryDate": p.expiryDate.isoformat() if p.expiryDate else None,
+        "arrivalDate": p.arrivalDate.isoformat() if p.arrivalDate else None,
         "createdAt": p.createdAt.isoformat() if p.createdAt else None,
     }
 
@@ -255,6 +284,93 @@ def product_detail(request, product_id):
     if request.method == "PATCH":
         return update_product(request, product_id)
     return delete_product(request, product_id)
+
+
+@api_view(["PATCH"])
+@permission_classes([RequireAdminPanel, RequirePermission("products")])
+def set_product_merchandising(request, product_id):
+    """Toggle the merchandising flags for one product — Admin -> Merchandising.
+
+    Its own endpoint for the same reason as the GST one: update_product()
+    validates the entire product body, and these are single-field toggles.
+    Only the keys actually supplied are touched.
+    """
+    doc = Product.objects(id=product_id).first()
+    if not doc:
+        return Response({"message": "Product not found"}, status=404)
+
+    data = request.data
+    before = {
+        "crazyDeal": doc.crazyDeal, "nearExpiry": doc.nearExpiry,
+        "newArrival": doc.newArrival, "crazyDealPrice": doc.crazyDealPrice,
+    }
+
+    for flag in ("crazyDeal", "nearExpiry", "newArrival"):
+        if flag in data:
+            setattr(doc, flag, data[flag] is True or str(data[flag]).lower() in ("true", "1"))
+
+    if "crazyDealPrice" in data:
+        raw = data.get("crazyDealPrice")
+        if raw is None or str(raw).strip() == "":
+            doc.crazyDealPrice = 0
+        else:
+            try:
+                price = float(raw)
+            except (TypeError, ValueError):
+                price = -1
+            if price < 0:
+                return Response({"message": "Validation failed", "errors": [
+                    {"msg": "Deal price must be 0 or more.", "param": "crazyDealPrice"}
+                ]}, status=400)
+            if price > float(doc.sellingPrice or 0):
+                return Response({"message": "Validation failed", "errors": [
+                    {"msg": "Deal price cannot exceed the selling price.", "param": "crazyDealPrice"}
+                ]}, status=400)
+            doc.crazyDealPrice = price
+
+    for field in ("expiryDate", "arrivalDate"):
+        if field in data:
+            setattr(doc, field, _parse_date(data.get(field)))
+
+    doc.save()
+    write_audit(request, "product.merchandising", doc.sku, {"before": before, "after": {
+        "crazyDeal": doc.crazyDeal, "nearExpiry": doc.nearExpiry,
+        "newArrival": doc.newArrival, "crazyDealPrice": doc.crazyDealPrice,
+    }})
+    return Response({"message": "Product updated.", "product": admin_view(doc)})
+
+
+@api_view(["PATCH"])
+@permission_classes([RequireAdminPanel, RequirePermission("settings")])
+def set_product_gst(request, product_id):
+    """Set (or clear) one product's GST override — Admin -> Tax & GST.
+
+    Its own endpoint rather than a PUT through update_product() because that
+    path validates the whole product body; this only ever touches gstRate.
+    An empty string / null clears the override so the product falls back to
+    the store default.
+    """
+    raw = request.data.get("gstRate")
+    if raw is None or str(raw).strip() == "":
+        rate = None
+    else:
+        try:
+            rate = float(raw)
+        except (TypeError, ValueError):
+            rate = -1
+        if rate < 0 or rate > 100:
+            return Response({"message": "Validation failed", "errors": [
+                {"msg": "GST rate must be between 0 and 100.", "param": "gstRate"}
+            ]}, status=400)
+
+    doc = Product.objects(id=product_id).first()
+    if not doc:
+        return Response({"message": "Product not found"}, status=404)
+    before = doc.gstRate
+    doc.gstRate = rate
+    doc.save()
+    write_audit(request, "product.gst", doc.sku, {"before": before, "after": rate})
+    return Response({"message": "GST updated.", "product": admin_view(doc)})
 
 
 @api_view(["PATCH"])

@@ -16,7 +16,9 @@
     channels: [],
     channel: "",
     resetToken: "",
-    resendTimer: null
+    resendTimer: null,
+    expiryTimer: null,
+    autoSubmitted: false
   };
 
   var steps = {
@@ -117,8 +119,8 @@
       var where = state.channel === "sms"
         ? "mobile number " + data.destination
         : data.destination;
-      document.getElementById("otpSentTo").textContent = "Sent to " + where +
-        ". It expires in " + data.expiresInMinutes + " minutes.";
+      document.getElementById("otpSentTo").textContent = "Sent to " + where + ".";
+      startExpiryCountdown(Number(data.expiresInMinutes || 10) * 60);
       // Only shown when the server is not running in production mode, so the
       // flow is testable before SMTP/SMS credentials are live.
       if (data.devCode) {
@@ -128,6 +130,30 @@
       startResendCountdown(data.resendAfterSeconds || 60);
       showStep(3);
     });
+  }
+
+  // Live "expires in 9:58" clock. A static "expires in 10 minutes" leaves the
+  // customer guessing how long they have left, which is when they give up.
+  function startExpiryCountdown(seconds) {
+    var label = document.getElementById("otpExpiry");
+    if (!label) return;
+    var left = seconds;
+    clearInterval(state.expiryTimer);
+    var tick = function () {
+      if (left <= 0) {
+        clearInterval(state.expiryTimer);
+        label.textContent = "This code has expired — request a new one.";
+        label.classList.add("is-expired");
+        return;
+      }
+      var m = Math.floor(left / 60);
+      var sec = left % 60;
+      label.textContent = "Code expires in " + m + ":" + (sec < 10 ? "0" : "") + sec;
+      label.classList.remove("is-expired");
+      left -= 1;
+    };
+    tick();
+    state.expiryTimer = setInterval(tick, 1000);
   }
 
   function startResendCountdown(seconds) {
@@ -148,6 +174,23 @@
     tick();
     state.resendTimer = setInterval(tick, 1000);
   }
+
+  // Auto-submit as soon as a full code is present — typed, pasted, or filled
+  // in by the OS from an SMS. Guarded so it fires once per completed code.
+  (function wireOtpAutoSubmit() {
+    var input = steps[3] && steps[3].querySelector('input[name="code"]');
+    if (!input) return;
+    input.addEventListener("input", function () {
+      var digits = input.value.replace(/\D/g, "");
+      if (digits !== input.value) input.value = digits;   // strip stray characters
+      if (digits.length === 6 && !state.autoSubmitted) {
+        state.autoSubmitted = true;
+        if (typeof steps[3].requestSubmit === "function") steps[3].requestSubmit();
+        else steps[3].dispatchEvent(new Event("submit", { cancelable: true }));
+      }
+      if (digits.length < 6) state.autoSubmitted = false;
+    });
+  })();
 
   document.getElementById("otpResend").addEventListener("click", function () {
     var button = this;

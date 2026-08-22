@@ -59,6 +59,8 @@ const AdminShell = (() => {
       { key: "orders", label: "Orders", href: "/admin/orders.html", icon: "orders", built: true },
       { key: "products", label: "Products", href: "/admin/products.html", icon: "products", built: true },
       { key: "inventory", label: "Inventory", href: "/admin/inventory.html", icon: "inventory", built: true },
+      // Crazy Deals / New Arrivals / Near Expiry flags for the storefront.
+      { key: "merchandising", label: "Merchandising", href: "/admin/merchandising.html", icon: "products", built: true },
       { key: "coupons", label: "Coupons", href: "/admin/coupons.html", icon: "coupons", built: true },
       { key: "customers", label: "Customers", href: "/admin/customers.html", icon: "customers", built: true }
     ]},
@@ -68,11 +70,17 @@ const AdminShell = (() => {
       { key: "content", label: "Content", href: "/admin/content.html", icon: "content", built: true },
       // Gated on "settings" because that is what /api/admin/content/homepage
       // (the endpoint this page reads and writes) actually requires.
-      { key: "banners", perm: "settings", label: "Banners", href: "/admin/banners.html", icon: "content", built: true }
+      { key: "banners", perm: "settings", label: "Banners", href: "/admin/banners.html", icon: "content", built: true },
+      // Banner collection with per-record ordering, scheduling and on/off.
+      // The older Banners page still edits the legacy hero/brand-strip JSON.
+      { key: "slideshow", perm: "settings", label: "Slideshow", href: "/admin/slideshow.html", icon: "content", built: true }
     ]},
     { group: "Administration", items: [
       { key: "team", label: "Team & Roles", href: "/admin/team.html", icon: "team", built: true },
       { key: "audit_logs", label: "Audit Log", href: "/admin/audit.html", icon: "audit_logs", built: true },
+      // Gated on "settings": the page writes SiteSetting "taxes" and product
+      // GST overrides, both of which that permission already covers.
+      { key: "tax", perm: "settings", label: "Tax & GST", href: "/admin/tax.html", icon: "settings", built: true },
       { key: "settings", label: "Settings", href: "/admin/settings.html", icon: "settings", built: true }
     ]}
   ];

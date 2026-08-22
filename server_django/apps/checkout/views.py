@@ -144,7 +144,7 @@ def validate_coupon(request):
     shipping = pricing.shipping_charge(after_coupon) if has_physical else 0
     if result["freeShipping"]:
         shipping = 0
-    gst = pricing.gst_amount(after_coupon)
+    gst = pricing.gst_for_line_items(line_items, result["amount"])
 
     detail = pricing.coupon_public_view(result.get("coupon"))
     return Response({

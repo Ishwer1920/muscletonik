@@ -56,6 +56,12 @@ function isImageSlide(slide) {
   return Boolean(slide && (slide.image || slide.imageMobile) && slide.type !== "rich");
 }
 
+// A slideshow banner carrying its own copy needs the caption overlay; artwork
+// with no text renders as a plain image slide.
+function isBannerSlide(slide) {
+  return Boolean(slide && slide.type === "banner" && (slide.title || slide.subtitle || slide.ctaText));
+}
+
 // Only same-origin relative paths and http(s) URLs may drive a banner link, so
 // CMS content can never smuggle in a javascript: URL.
 function safeSlideHref(href) {
@@ -82,6 +88,36 @@ function imageSlideMarkup(slide, index) {
     ? `<a class="hero-banner" href="${escapeHtml(href)}">${picture}</a>`
     : `<div class="hero-banner">${picture}</div>`;
   return `<article class="hero-slide is-image" data-slide="${index}">${inner}</article>`;
+}
+
+// Artwork + overlaid title/subtitle/CTA. The copy sits in a scrim so it stays
+// readable over any image, and collapses to full width on small screens.
+function bannerSlideMarkup(slide, index) {
+  const desktop = escapeHtml(slide.image || slide.imageMobile);
+  const mobile = slide.imageMobile ? escapeHtml(slide.imageMobile) : "";
+  const alt = escapeHtml(slide.alt || slide.title || "Promotional banner");
+  const href = safeSlideHref(slide.href);
+  const loading = index === 0 ? "eager" : "lazy";
+  const picture = `
+    <picture>
+      ${mobile ? `<source media="(max-width:640px)" srcset="${mobile}">` : ""}
+      <img src="${desktop}" alt="${alt}" loading="${loading}" decoding="async" draggable="false">
+    </picture>`;
+  const cta = slide.ctaText && href
+    ? `<a class="btn btn-primary hero-banner-cta" href="${escapeHtml(href)}">${escapeHtml(slide.ctaText)}</a>`
+    : "";
+  const caption = `
+    <div class="hero-banner-caption">
+      ${slide.title ? `<h2>${escapeHtml(slide.title)}</h2>` : ""}
+      ${slide.subtitle ? `<p>${escapeHtml(slide.subtitle)}</p>` : ""}
+      ${cta}
+    </div>`;
+  // The whole banner is only a link when there is no separate CTA button, so
+  // a nested <a> can never end up inside another <a>.
+  const inner = href && !cta
+    ? `<a class="hero-banner" href="${escapeHtml(href)}">${picture}${caption}</a>`
+    : `<div class="hero-banner">${picture}${caption}</div>`;
+  return `<article class="hero-slide is-image is-banner" data-slide="${index}">${inner}</article>`;
 }
 
 function richSlideMarkup(slide, index) {
@@ -142,6 +178,196 @@ function offerCardMarkup(slide, accentClass) {
           </div>`;
 }
 
+/* ===========================================================
+   COMPOSED BANNERS — Admin -> Slideshow (layout "promo" / "festive")
+
+   These replace what used to be hardcoded HTML sections. Every string,
+   image, colour, CTA and the countdown come from the API, so the banner
+   changes without a deploy.
+   =========================================================== */
+
+// Absolute deadline from the server (ISO-8601 carrying a UTC offset), so the
+// countdown reads the same in every timezone and survives a refresh. The
+// remaining time is recomputed from Date.now() on each tick rather than
+// decremented, so a throttled background tab or a sleeping laptop cannot make
+// it drift.
+function startBannerCountdown(root, isoEnd, onExpire) {
+  var box = root.querySelector("[data-countdown]");
+  if (!box || !isoEnd) return;
+  var deadline = Date.parse(isoEnd);
+  if (isNaN(deadline)) return;
+
+  var pad = function (n) { return String(n).padStart(2, "0"); };
+  var cells = {
+    h: box.querySelector("[data-cd-h]"),
+    m: box.querySelector("[data-cd-m]"),
+    s: box.querySelector("[data-cd-s]")
+  };
+  var timer = null;
+  function tick() {
+    var diff = deadline - Date.now();
+    if (diff <= 0) {
+      if (cells.h) cells.h.textContent = "00";
+      if (cells.m) cells.m.textContent = "00";
+      if (cells.s) cells.s.textContent = "00";
+      clearInterval(timer);
+      if (typeof onExpire === "function") onExpire();
+      return;
+    }
+    var total = Math.floor(diff / 1000);
+    // Days roll up into hours, so a three-day sale reads "72" instead of
+    // silently restarting at 24.
+    if (cells.h) cells.h.textContent = pad(Math.floor(total / 3600));
+    if (cells.m) cells.m.textContent = pad(Math.floor((total % 3600) / 60));
+    if (cells.s) cells.s.textContent = pad(total % 60);
+  }
+  tick();
+  timer = setInterval(tick, 1000);
+}
+
+function bannerCta(text, href, cls) {
+  if (!text || !href) return "";
+  return '<a class="' + cls + '" href="' + escapeHtml(href) + '">' + escapeHtml(text) + "</a>";
+}
+
+// Background: an uploaded image wins, otherwise the configured colour or
+// gradient. Both are optional.
+function bannerBackgroundStyle(b) {
+  var out = [];
+  if (b.backgroundColor) out.push("background:" + b.backgroundColor);
+  if (b.image) {
+    out.push("background-image:url('" + encodeURI(b.image) + "')");
+    out.push("background-size:cover");
+    out.push("background-position:center");
+  }
+  return out.join(";");
+}
+
+function promoBannerMarkup(b) {
+  var expired = b.timerEnabled && b.timerEnd && Date.parse(b.timerEnd) <= Date.now();
+  var product = b.product;
+  var showTimer = b.timerEnabled && b.timerEnd && !(expired && b.expiredBehavior === "expired");
+  var timer = showTimer
+    ? '<div class="countdown" data-countdown>' +
+        "<div><b data-cd-h>00</b><span>HRS</span></div>" +
+        "<div><b data-cd-m>00</b><span>MIN</span></div>" +
+        "<div><b data-cd-s>00</b><span>SEC</span></div>" +
+      "</div>"
+    : "";
+  var expiredNote = (expired && b.expiredBehavior === "expired")
+    ? '<p class="promo-expired">This offer has ended.</p>'
+    : "";
+
+  // The featured product is read live from the catalogue, so its price and
+  // photo can never drift out of step with the marketplace.
+  var card = "";
+  if (product) {
+    card = '<a class="deal-spotlight" href="' + escapeHtml(product.href) + '">' +
+      '<span class="deal-shot">' +
+        (product.image ? '<img src="' + escapeHtml(product.image) + '" alt="' + escapeHtml(product.name) + '" loading="lazy">' : "") +
+      "</span>" +
+      '<span class="deal-brand">' + escapeHtml(product.brand || "") + "</span>" +
+      '<span class="deal-name">' + escapeHtml(product.name) + "</span>" +
+      '<span class="deal-price">' + formatINR(product.price) +
+        (product.oldPrice && product.oldPrice > product.price ? " <s>" + formatINR(product.oldPrice) + "</s>" : "") +
+      "</span>" +
+      (b.ctaText ? '<span class="btn btn-outline-light deal-cta">' + escapeHtml(b.ctaText) + "</span>" : "") +
+    "</a>";
+  } else if (b.productImage) {
+    card = '<div class="deal-spotlight"><span class="deal-shot"><img src="' +
+      escapeHtml(b.productImage) + '" alt="" loading="lazy"></span></div>';
+  }
+
+  return '<div class="deal-banner" style="' + bannerBackgroundStyle(b) + '">' +
+      (b.overlay ? '<span class="banner-scrim" style="opacity:' + (b.overlay / 100) + '"></span>' : "") +
+      '<div class="deal-copy">' +
+        (b.subheading ? '<span class="eyebrow">' + escapeHtml(b.subheading) + "</span>" : "") +
+        (b.heading ? "<h2>" + escapeHtml(b.heading) + "</h2>" : "") +
+        (b.paragraph ? "<p>" + escapeHtml(b.paragraph) + "</p>" : "") +
+        (b.timerLabel && showTimer ? '<span class="promo-timer-label">' + escapeHtml(b.timerLabel) + "</span>" : "") +
+        timer + expiredNote +
+        '<div class="promo-actions">' +
+          bannerCta(b.ctaText, b.ctaUrl, "btn btn-primary") +
+          bannerCta(b.cta2Text, b.cta2Url, "btn btn-outline-light") +
+        "</div>" +
+      "</div>" +
+      '<div class="deal-visual">' + card + "</div>" +
+    "</div>";
+}
+
+function festiveBannerMarkup(b) {
+  var visual;
+  if (b.logo) {
+    visual = '<div class="promo-visual"><img src="' + escapeHtml(b.logo) + '" alt="" loading="lazy" style="width:' +
+      (Number(b.logoSize) || 120) + 'px;height:auto;"></div>';
+  } else if (b.mainImage) {
+    visual = '<div class="promo-visual"><img src="' + escapeHtml(b.mainImage) + '" alt="" loading="lazy"></div>';
+  } else {
+    visual = '<div class="promo-visual" aria-hidden="true">' + festiveRakhiSvg() + "</div>";
+  }
+
+  return '<div class="promo-banner promo-festive" style="' + bannerBackgroundStyle(b) + '">' +
+      (b.overlay ? '<span class="banner-scrim" style="opacity:' + (b.overlay / 100) + '"></span>' : "") +
+      '<div class="promo-text">' +
+        (b.offerText ? '<span class="promo-eyebrow">' + escapeHtml(b.offerText) + "</span>" : "") +
+        (b.heading ? "<h2>" + escapeHtml(b.heading) + "</h2>" : "") +
+        (b.subheadingText ? '<p class="promo-sub">' + escapeHtml(b.subheadingText) + "</p>" : "") +
+        (b.paragraph ? '<p class="promo-copy">' + escapeHtml(b.paragraph) + "</p>" : "") +
+        '<div class="promo-actions">' +
+          bannerCta(b.ctaText, b.ctaUrl, "btn btn-festive") +
+          bannerCta(b.cta2Text, b.cta2Url, "btn btn-outline-light") +
+        "</div>" +
+        (b.note ? '<p class="promo-note">' + escapeHtml(b.note) + "</p>" : "") +
+      "</div>" + visual +
+    "</div>";
+}
+
+// Fallback artwork when no logo or image is configured, so the festive layout
+// never renders as a bare colour block.
+function festiveRakhiSvg() {
+  return '<svg viewBox="0 0 220 220" role="presentation" focusable="false">' +
+    '<defs><linearGradient id="rkGold" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="#ffe6a6"/><stop offset="1" stop-color="#e0972c"/></linearGradient>' +
+    '<linearGradient id="rkThread" x1="0" y1="0" x2="1" y2="0">' +
+    '<stop offset="0" stop-color="#ff9db4"/><stop offset="1" stop-color="#f2647f"/></linearGradient></defs>' +
+    '<path d="M18 128c34-26 52 22 84 4" stroke="url(#rkThread)" stroke-width="11" fill="none" stroke-linecap="round"/>' +
+    '<path d="M202 128c-34-26-52 22-84 4" stroke="url(#rkThread)" stroke-width="11" fill="none" stroke-linecap="round"/>' +
+    '<circle cx="110" cy="104" r="46" fill="url(#rkGold)"/>' +
+    '<circle cx="110" cy="104" r="33" fill="#a51f3f" opacity=".92"/>' +
+    '<circle cx="110" cy="104" r="15" fill="url(#rkGold)"/>' +
+    '<g fill="#ffd98a"><circle cx="110" cy="47" r="7"/><circle cx="110" cy="161" r="7"/>' +
+    '<circle cx="53" cy="104" r="7"/><circle cx="167" cy="104" r="7"/></g></svg>';
+}
+
+// Mount the first live banner of each composed layout. A section stays hidden
+// when nothing is configured, so the homepage simply skips it.
+function renderComposedBanners() {
+  var all = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.banners) || [];
+  var mounts = [
+    { layout: "promo", mount: "promoBannerMount", host: "promoBanner", render: promoBannerMarkup },
+    { layout: "festive", mount: "festiveBannerMount", host: "festiveBanner", render: festiveBannerMarkup }
+  ];
+  mounts.forEach(function (cfg) {
+    var section = document.getElementById(cfg.mount);
+    var host = document.getElementById(cfg.host);
+    if (!section || !host) return;
+    var banner = all.filter(function (b) { return b.layout === cfg.layout; })[0];
+    if (!banner) { section.hidden = true; return; }
+
+    host.innerHTML = cfg.render(banner);
+    section.hidden = false;
+
+    if (banner.timerEnabled && banner.timerEnd) {
+      startBannerCountdown(host, banner.timerEnd, function () {
+        // The server's is_live() already drops a "hide" banner on the next
+        // load; this covers the tab that was open when the clock ran out.
+        if (banner.expiredBehavior === "hide") section.hidden = true;
+        else if (banner.expiredBehavior === "expired") host.innerHTML = cfg.render(banner);
+      });
+    }
+  });
+}
+
 function renderHeroSlides() {
   const root = document.getElementById("heroSlides");
   const dots = document.getElementById("heroDots");
@@ -157,11 +383,14 @@ function renderHeroSlides() {
 
   root.className = "hero-track";
   root.innerHTML = slides
-    .map((slide, index) => (isImageSlide(slide) ? imageSlideMarkup(slide, index) : richSlideMarkup(slide, index)))
+    .map((slide, index) => {
+      if (isBannerSlide(slide)) return bannerSlideMarkup(slide, index);
+      return isImageSlide(slide) ? imageSlideMarkup(slide, index) : richSlideMarkup(slide, index);
+    })
     .join("");
 
   dots.innerHTML = slides.length > 1
-    ? slides.map((_, i) => `<button type="button" class="${i === 0 ? "active" : ""}" aria-label="Go to slide ${i + 1}" onclick="goToHeroSlide(${i})"></button>`).join("")
+    ? slides.map((_, i) => `<button type="button" class="${i === 0 ? "active" : ""}" aria-label="Go to slide ${i + 1}" onclick="goToHeroSlide(${i})"><span class="dot-fill"></span></button>`).join("")
     : "";
 
   heroIndex = 0;
@@ -189,7 +418,28 @@ function withOfferCard(slide, hero) {
   };
 }
 
+// Banners configured in Admin -> Slideshow win over anything legacy. They are
+// already ordered and schedule-filtered by the API, so they are used as-is.
+function resolveBannerSlides() {
+  const banners = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.banners) || [];
+  if (!Array.isArray(banners) || !banners.length) return null;
+  return banners
+    .filter(b => b && b.image)
+    .map(b => ({
+      type: "banner",
+      image: b.image,
+      imageMobile: b.imageMobile || "",
+      alt: b.alt || b.title || "Promotional banner",
+      title: b.title || "",
+      subtitle: b.subtitle || "",
+      ctaText: b.ctaText || "",
+      href: b.ctaUrl || b.href || ""
+    }));
+}
+
 function resolveHeroSlides(content) {
+  const banners = resolveBannerSlides();
+  if (banners && banners.length) return banners;
   // The API resolves the slide list (hero.slides -> legacy heroSlides -> seed)
   // and js/data.js mirrors it here, so this is the authoritative list. Reading
   // content.hero directly would collapse a multi-slide hero down to one slide.
@@ -224,17 +474,80 @@ function goToHeroSlide(index) {
   if (!slides.length) return;
   heroIndex = (index + slides.length) % slides.length;
   slides.forEach((slide, i) => slide.classList.toggle("active", i === heroIndex));
-  dots.forEach((dot, i) => dot.classList.toggle("active", i === heroIndex));
+  dots.forEach((dot, i) => {
+    dot.classList.toggle("active", i === heroIndex);
+    const fill = dot.querySelector(".dot-fill");
+    if (fill && i !== heroIndex) {
+      fill.style.transition = "none";
+      fill.style.transform = "scaleX(0)";
+    }
+  });
   applyHeroOffset(0, true);
   restartHeroTimer();
+}
+
+// Autoplay cadence comes from Admin -> Slideshow (SiteSetting "slideshow").
+// The server already clamps it to 2-60s; this is just the client-side default
+// for the moment before the catalogue lands.
+function heroSettings() {
+  const s = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.slideshowSettings) || {};
+  const seconds = Number(s.intervalSeconds);
+  return {
+    intervalMs: (isFinite(seconds) && seconds >= 2 && seconds <= 60 ? seconds : 6.5) * 1000,
+    autoplay: s.autoplay !== false,
+    pauseOnHover: s.pauseOnHover !== false
+  };
+}
+
+function heroReducedMotion() {
+  return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
 }
 
 function restartHeroTimer() {
   clearInterval(heroTimer);
   const slideCount = document.querySelectorAll(".hero-slide").length;
   if (slideCount < 2) return;
-  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  heroTimer = setInterval(() => goToHeroSlide(heroIndex + 1), 6500);
+  if (heroReducedMotion()) return;
+
+  const cfg = heroSettings();
+  if (!cfg.autoplay) return;
+
+  // Drive the dot's progress fill off the same duration, so the indicator is
+  // an honest countdown to the next slide rather than decoration.
+  const active = document.querySelector("#heroDots button.active .dot-fill");
+  if (active) {
+    active.style.transition = "none";
+    active.style.transform = "scaleX(0)";
+    // Force a reflow so the reset is committed before the animation starts.
+    void active.offsetWidth;
+    active.style.transition = "transform " + cfg.intervalMs + "ms linear";
+    active.style.transform = "scaleX(1)";
+  }
+
+  heroTimer = setInterval(() => goToHeroSlide(heroIndex + 1), cfg.intervalMs);
+}
+
+// Hovering the hero holds the current slide, so a customer reading a banner is
+// never yanked to the next one mid-sentence.
+function wireHeroHoverPause() {
+  const slider = document.querySelector(".hero-slider");
+  if (!slider || slider.dataset.hoverWired === "1") return;
+  slider.dataset.hoverWired = "1";
+  slider.addEventListener("mouseenter", () => {
+    if (!heroSettings().pauseOnHover) return;
+    clearInterval(heroTimer);
+    const fill = document.querySelector("#heroDots button.active .dot-fill");
+    if (fill) {
+      // Freeze the bar where it is rather than snapping it back.
+      const width = getComputedStyle(fill).transform;
+      fill.style.transition = "none";
+      fill.style.transform = width;
+    }
+  });
+  slider.addEventListener("mouseleave", () => {
+    if (!heroSettings().pauseOnHover) return;
+    restartHeroTimer();
+  });
 }
 
 // Drag/swipe with snap. Pointer events cover touch, mouse and pen in one path.
@@ -483,7 +796,9 @@ document.addEventListener("DOMContentLoaded", async function () {
   applyHomepageContent();
   const order = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.homepageOrder) || (SITE_CONTENT && SITE_CONTENT.order) || [];
   applyHomepageOrder(order);
+  renderComposedBanners();
   setupHeroControls();
-  startCountdown("deal", 6 * 3600 + 12 * 60 + 45);
+  wireHeroHoverPause();
+  restartHeroTimer();   // kicks off autoplay + the first dot's progress fill
   initReveal();
 });

@@ -17,7 +17,164 @@ COD_ADVANCE_RATE = 0.2
 
 FREE_SHIPPING_OVER = 599
 SHIPPING_FEE = 79
-GST_RATE = 0.05
+
+# ---------------------------------------------------------------------------
+# GST
+#
+# THE SINGLE PLACE GST IS CONFIGURED:
+#   Admin panel -> Tax  (stored as SiteSetting key "taxes", field "gstRate")
+#     * "Default GST rate" applies to every product that has no override.
+#     * A per-product override lives on Product.gstRate (same admin page).
+#
+# DEFAULT_GST_PERCENT below is only the cold-start fallback used before that
+# setting has ever been saved. Change the rate in the admin panel, not here.
+# ---------------------------------------------------------------------------
+DEFAULT_GST_PERCENT = 5.0
+
+# Kept so any older import of pricing.GST_RATE still resolves. New code should
+# call default_gst_rate() / product_gst_rate() so admin edits are honoured.
+GST_RATE = DEFAULT_GST_PERCENT / 100
+
+
+def _clean_percent(value):
+    """A usable 0-100 GST percent, or None if the value is unset/garbage."""
+    if value is None or value == "":
+        return None
+    try:
+        percent = float(value)
+    except (TypeError, ValueError):
+        return None
+    if percent < 0 or percent > 100:
+        return None
+    return percent
+
+
+def default_gst_rate():
+    """Store-wide GST percent from Admin -> Tax, falling back to the constant.
+
+    Read per call rather than cached: the rate changes rarely but must take
+    effect the moment it is saved, and every caller is already hitting Mongo.
+    """
+    from apps.cms.models import SiteSetting
+    try:
+        doc = SiteSetting.objects(key="taxes").first()
+    except Exception:
+        return DEFAULT_GST_PERCENT
+    value = doc.value if doc else None
+    if isinstance(value, dict):
+        percent = _clean_percent(value.get("gstRate"))
+        if percent is not None:
+            return percent
+    return DEFAULT_GST_PERCENT
+
+
+def gst_enabled():
+    """Whether GST is charged at all. Admin -> Tax & GST."""
+    from apps.cms.models import SiteSetting
+    try:
+        doc = SiteSetting.objects(key="taxes").first()
+    except Exception:
+        return True
+    value = doc.value if doc else None
+    if isinstance(value, dict) and "gstEnabled" in value:
+        return bool(value.get("gstEnabled"))
+    return True
+
+
+def brand_gst_rates():
+    """{brand-id: percent} for brands carrying their own GST override.
+
+    Brands live in the SiteSetting key/value store (catalog.brands), so the
+    override rides along on each brand record rather than needing a new model.
+    """
+    from apps.catalog import taxonomy
+    rates = {}
+    try:
+        brands = taxonomy.get_brands()
+    except Exception:
+        return rates
+    for brand in brands or []:
+        if not isinstance(brand, dict):
+            continue
+        percent = _clean_percent(brand.get("gstRate"))
+        if percent is not None and brand.get("id"):
+            rates[str(brand["id"]).strip().lower()] = percent
+    return rates
+
+
+def product_gst_rate(product, default_percent=None, brand_rates=None):
+    """GST percent for one product, by the documented priority:
+
+        product override  ->  brand override  ->  global default
+
+    Each step is skipped when it is unset, so a product with no override falls
+    to its brand, and a brand with no override falls to the store default.
+    """
+    if default_percent is None:
+        default_percent = default_gst_rate()
+
+    own = _clean_percent(getattr(product, "gstRate", None))
+    if own is not None:
+        return own
+
+    if brand_rates is None:
+        brand_rates = brand_gst_rates()
+    brand = str(getattr(product, "brand", "") or "").strip().lower()
+    if brand and brand in brand_rates:
+        return brand_rates[brand]
+
+    return default_percent
+
+
+def gst_for_line_items(line_items, discount=0):
+    """Total GST for a cart, charged per line at that product's own rate.
+
+    A cart-wide coupon is spread across the lines in proportion to their value,
+    so a discount reduces the taxable base of each line fairly instead of being
+    taken entirely off whichever line happens to come first. With every product
+    on the same rate this returns the same rupee figure as taxing the discounted
+    subtotal in one go, so existing single-rate carts are unaffected.
+    """
+    lines = list(line_items or [])
+    if not lines:
+        return 0
+
+    if not gst_enabled():
+        return 0
+
+    default_percent = default_gst_rate()
+    brand_rates = brand_gst_rates()
+    subtotal = sum(round_money(li.get("lineTotal", 0)) for li in lines)
+    discount = min(round_money(discount), subtotal)
+
+    if subtotal <= 0:
+        return 0
+
+    total = 0
+    for li in lines:
+        line_total = round_money(li.get("lineTotal", 0))
+        share = round_money(discount * line_total / subtotal) if discount else 0
+        taxable = max(0, line_total - share)
+        rate = product_gst_rate(li.get("product"), default_percent, brand_rates)
+        total += round_money(taxable * rate / 100)
+    return total
+
+
+def effective_price(product):
+    """What a product actually sells for right now.
+
+    A Crazy Deal price replaces sellingPrice when it is set and genuinely
+    lower; anything else falls back to sellingPrice. Used by the cart AND by
+    the catalogue serializer so the price on the card is the price charged.
+    """
+    selling = float(getattr(product, "sellingPrice", 0) or 0)
+    if not getattr(product, "crazyDeal", False):
+        return selling
+    try:
+        deal = float(getattr(product, "crazyDealPrice", 0) or 0)
+    except (TypeError, ValueError):
+        return selling
+    return deal if 0 < deal < selling else selling
 
 
 def round_money(n):
@@ -40,8 +197,18 @@ def shipping_charge(subtotal_after_discount):
     return 0 if subtotal_after_discount > FREE_SHIPPING_OVER else SHIPPING_FEE
 
 
-def gst_amount(amount):
-    return round_money(amount * GST_RATE)
+def gst_amount(amount, percent=None):
+    """Flat GST on a single figure at the store default rate.
+
+    Still used for totals that have no line items to walk (a re-quote from a
+    stored order). Carts go through gst_for_line_items() so per-product
+    overrides apply.
+    """
+    if not gst_enabled():
+        return 0
+    if percent is None:
+        percent = default_gst_rate()
+    return round_money(amount * percent / 100)
 
 
 def _as_utc(value):

@@ -51,7 +51,8 @@ def resolve_line_items(items):
         line_items.append({
             "product": product,
             "quantity": item["quantity"],
-            "lineTotal": pricing.round_money(product.sellingPrice * item["quantity"]),
+            # Crazy Deal price wins when one is set — see pricing.effective_price.
+            "lineTotal": pricing.round_money(pricing.effective_price(product) * item["quantity"]),
         })
     return line_items
 
@@ -75,7 +76,9 @@ def create_checkout_session(user_id, payload):
     shipping = pricing.shipping_charge(after_coupon) if has_physical else 0
     if coupon["ok"] and coupon["freeShipping"]:
         shipping = 0
-    gst = pricing.gst_amount(after_coupon)
+    # Per-line so a product carrying its own GST override is taxed at its own
+    # rate; the coupon is spread across lines inside the helper.
+    gst = pricing.gst_for_line_items(line_items, coupon["amount"])
     total = after_coupon + shipping + gst
 
     shipping_address = payload.get("shippingAddress")

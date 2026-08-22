@@ -45,6 +45,9 @@ class Product(me.Document):
     sellingPrice = me.FloatField(default=0, min_value=0)
     discountPercent = me.FloatField(default=0, min_value=0, max_value=100)
     stock = me.IntField(default=0, min_value=0)
+    # Per-product GST override, as a percent (18 means 18%). None/unset means
+    # "use the store default" from Admin -> Tax (SiteSetting key "taxes").
+    gstRate = me.FloatField(min_value=0, max_value=100, null=True, default=None)
     digital = me.BooleanField(default=False)
     hidden = me.BooleanField(default=False)
     planType = me.StringField(default="")
@@ -54,6 +57,16 @@ class Product(me.Document):
     trending = me.BooleanField(default=False)
     bestSeller = me.BooleanField(default=False)
     newArrival = me.BooleanField(default=False)
+    # Merchandising flags. Existing products default to False / unset, so the
+    # catalogue keeps working untouched until an admin opts a product in.
+    crazyDeal = me.BooleanField(default=False)
+    # Deal price for a Crazy Deal. 0/unset = just use sellingPrice.
+    crazyDealPrice = me.FloatField(default=0, min_value=0)
+    # Batch expiry. Near-expiry status is derived from this against the
+    # store-wide threshold, unless nearExpiry is ticked manually.
+    expiryDate = me.DateTimeField(null=True, default=None)
+    nearExpiry = me.BooleanField(default=False)
+    arrivalDate = me.DateTimeField(null=True, default=None)
     weight = me.StringField(default="")
     flavor = me.StringField(default="")
     tags = me.ListField(me.StringField(), default=list)

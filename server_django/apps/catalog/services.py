@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+
+from apps.checkout import pricing
 from apps.cms.models import CmsContent, SiteSetting
 from apps.core.serialization import to_jsonable
 
@@ -7,14 +10,55 @@ from .models import Product, Review
 # Direct port of server/src/services/catalog.service.js.
 
 
-def map_product(p):
+def near_expiry_threshold_days():
+    """Days-before-expiry that counts as "near expiry". Admin -> Settings
+    (SiteSetting "catalog", field nearExpiryDays); 90 if never configured."""
+    doc = SiteSetting.objects(key="catalog").first()
+    value = doc.value if doc else None
+    if isinstance(value, dict):
+        try:
+            days = int(value.get("nearExpiryDays"))
+            if 1 <= days <= 3650:
+                return days
+        except (TypeError, ValueError):
+            pass
+    return 90
+
+
+def _days_to_expiry(expiry):
+    if not expiry:
+        return None
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    return (expiry - datetime.now(timezone.utc)).days
+
+
+def is_near_expiry(p, threshold_days=None):
+    """Manual tick wins; otherwise derived from expiryDate vs the threshold.
+    Already-expired stock is excluded — that is a fulfilment problem, not a
+    discount opportunity."""
+    if getattr(p, "nearExpiry", False):
+        return True
+    days = _days_to_expiry(getattr(p, "expiryDate", None))
+    if days is None:
+        return False
+    if threshold_days is None:
+        threshold_days = near_expiry_threshold_days()
+    return 0 <= days <= threshold_days
+
+
+def map_product(p, threshold_days=None):
+    days_left = _days_to_expiry(getattr(p, "expiryDate", None))
     return {
         "id": p.catalogId,
         "name": p.name,
         "brand": p.brand,
         "category": p.category,
-        "price": p.sellingPrice,
-        "oldPrice": p.mrp,
+        # On a Crazy Deal the deal price becomes "price" and the normal
+        # selling price becomes the struck-through "oldPrice", so the existing
+        # discount maths on the card reports the real saving.
+        "price": pricing.effective_price(p),
+        "oldPrice": (p.sellingPrice if pricing.effective_price(p) < (p.sellingPrice or 0) else p.mrp),
         "rating": p.rating,
         "reviews": p.reviewCount,
         "badge": p.badge or "",
@@ -37,6 +81,18 @@ def map_product(p):
         "flavors": [{"name": f.name, "image": f.image or ""} for f in (p.flavors or []) if f and f.name],
         "stock": p.stock,
         "status": p.status,
+        # None means "no override" — the storefront falls back to the store
+        # default in taxSettings.gstRate.
+        "gstRate": p.gstRate,
+        # --- merchandising -------------------------------------------------
+        "newArrival": bool(p.newArrival),
+        "crazyDeal": bool(p.crazyDeal),
+        "crazyDealPrice": p.crazyDealPrice or 0,
+        "nearExpiry": is_near_expiry(p, threshold_days),
+        # Only the coarse figure a shopper needs; the raw batch date stays
+        # internal so we are not publishing inventory detail.
+        "daysToExpiry": days_left if days_left is not None and days_left >= 0 else None,
+        "arrivalDate": p.arrivalDate.isoformat() if p.arrivalDate else None,
     }
 
 
@@ -79,7 +135,100 @@ def _parse_list(value):
 
 def _active_products():
     docs = Product.objects(status="active").order_by("catalogId")
-    return [map_product(p) for p in docs]
+    # Resolve the threshold once rather than per product (3k+ rows per call).
+    threshold = near_expiry_threshold_days()
+    return [map_product(p, threshold) for p in docs]
+
+
+def slideshow_settings():
+    """How the homepage slideshow behaves. Admin -> Slideshow.
+
+    intervalSeconds is how long each slide is held before advancing. Clamped
+    to a sane 2-60s so a bad value cannot freeze or strobe the hero.
+    """
+    doc = SiteSetting.objects(key="slideshow").first()
+    value = doc.value if doc and isinstance(doc.value, dict) else {}
+
+    try:
+        seconds = float(value.get("intervalSeconds"))
+    except (TypeError, ValueError):
+        seconds = 6.5
+    seconds = min(60.0, max(2.0, seconds))
+
+    return {
+        "intervalSeconds": seconds,
+        "autoplay": value.get("autoplay") is not False,
+        "pauseOnHover": value.get("pauseOnHover") is not False,
+    }
+
+
+def _iso_utc(value):
+    """ISO-8601 with an explicit UTC offset.
+
+    Mongo hands back naive datetimes, and .isoformat() on those omits the
+    zone — JavaScript then reads the string as LOCAL time, so a countdown
+    would be hours out for anyone not on UTC. Stamping the offset keeps every
+    client on the same instant.
+    """
+    if not value:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
+
+
+def live_banners():
+    """Active, in-schedule slideshow banners in display order.
+
+    Shape matches what the hero renderer already understands (image / title /
+    copy / cta), so the storefront can drop these straight into the slider.
+    """
+    from apps.cms import actions
+    from apps.cms.models import Banner
+    out = []
+    for b in Banner.objects().order_by("displayOrder", "createdAt"):
+        if not b.is_live():
+            continue
+        # CTA destinations are resolved here, never in the browser: the target
+        # is checked against the real catalogue and an unresolvable one yields
+        # no button rather than a dead link.
+        primary = actions.resolve(b.buttonActionType, b.buttonTarget) or b.ctaUrl or ""
+        out.append({
+            "id": str(b.id),
+            "layout": b.layout or "slide",
+            "image": b.image or "",
+            "imageMobile": b.imageMobile or "",
+            "alt": b.alt or b.heading or b.title or "Promotional banner",
+            "title": b.title or "",
+            "subtitle": b.subtitle or "",
+            # --- composed layouts ---
+            "heading": b.heading or "",
+            "subheadingText": b.subheading or "",
+            "paragraph": b.paragraph or "",
+            "offerText": b.offerText or "",
+            "note": b.note or "",
+            "backgroundColor": b.backgroundColor or "",
+            "overlay": b.overlay or 0,
+            "mainImage": b.mainImage or "",
+            "productImage": b.productImage or "",
+            "logo": b.logo or "",
+            "logoSize": b.logoSize or 120,
+            "product": actions.product_snapshot(b.productId),
+            # --- CTAs ---
+            "ctaText": b.ctaText or "",
+            "ctaUrl": primary,
+            "href": primary,
+            "cta2Text": b.button2Text or "",
+            "cta2Url": actions.resolve(b.button2ActionType, b.button2Target),
+            # --- countdown: an absolute UTC instant, so every client agrees
+            # regardless of timezone or clock drift ---
+            "timerEnabled": bool(b.timerEnabled),
+            "timerEnd": _iso_utc(b.timerEnd),
+            "serverNow": datetime.now(timezone.utc).isoformat(),
+            "timerLabel": b.timerLabel or "",
+            "expiredBehavior": b.expiredBehavior or "keep",
+        })
+    return out
 
 
 def get_catalog():
@@ -119,6 +268,18 @@ def get_catalog():
             "brandStrip": (homepage.get("brandStrip") if homepage else None) or homepage_settings.get("brandStrip") or [],
         },
         "siteSettings": settings.get("store") or {},
+        # Slideshow banners from the Banner collection. Empty list = fall back
+        # to the legacy hero slides, so existing setups are untouched.
+        "banners": live_banners(),
+        "slideshowSettings": slideshow_settings(),
+        # Store-wide GST, so cart/checkout can label and estimate at the same
+        # rate the server charges. Configured in Admin -> Tax.
+        # Brands already ship their own gstRate inside the brands list above,
+        # so the storefront can resolve product -> brand -> global itself.
+        "taxSettings": {
+            "gstRate": pricing.default_gst_rate(),
+            "gstEnabled": pricing.gst_enabled(),
+        },
     }
 
 
@@ -156,6 +317,9 @@ def search_products(query):
     min_rating = _to_float(query.get("minRating"), 0)
     max_price = _to_float(query.get("maxPrice"), float("inf"))
     sort = str(query.get("sort") or "popularity")
+    # Merchandising collections reuse this endpoint (and its filters, sorting
+    # and pagination) instead of each getting a near-identical route.
+    collection = str(query.get("collection") or "").strip().lower()
     page = max(1, _to_int(query.get("page"), 1))
     limit = max(1, _to_int(query.get("limit"), 12))
 
@@ -163,9 +327,19 @@ def search_products(query):
     all_brands = taxonomy.get_brands()
     all_categories = taxonomy.get_categories()
 
+    COLLECTION_FLAGS = {
+        "crazy-deals": "crazyDeal",
+        "near-expiry": "nearExpiry",
+        "new-arrivals": "newArrival",
+    }
+
     def keep(product):
         if product["hidden"]:
             return False
+        if collection:
+            flag = COLLECTION_FLAGS.get(collection)
+            if not flag or not product.get(flag):
+                return False
         if categories and product["category"] not in categories:
             return False
         if brands_filter and product["brand"] not in brands_filter:

@@ -9,7 +9,28 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
-<link rel="icon" href="/favicon.ico">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1080942901285554');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1080942901285554&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Meta Pixel Code -->
 </head>
 <body>
 <div id="site-header"></div>
@@ -22,6 +43,14 @@
 </section>
 
 <main>
+  <!-- Raksha Bandhan festive offer. Static markup (not a hero slide) so it
+       reads as its own promotion and never competes with the carousel. -->
+  <!-- Composed banners (Admin -> Slideshow, layout "festive"/"promo").
+       Rendered from the API; the markup used to live here as static HTML. -->
+  <section class="section-tight" data-home-section="raakhi" id="festiveBannerMount" hidden>
+    <div class="container"><div id="festiveBanner"></div></div>
+  </section>
+
   <section class="section" data-home-section="categories">
     <div class="container">
       <div class="sec-head">
@@ -62,7 +91,7 @@
     </div>
   </section>
 
-  <section class="section bmi-section" data-home-section="bmi">
+  <section class="section bmi-section" id="bmi" data-home-section="bmi">
     <div class="container">
       <div class="sec-head">
         <div>
@@ -119,23 +148,8 @@
     </div>
   </section>
 
-  <section class="section-tight" data-home-section="deals">
-    <div class="container">
-      <div class="deal-banner reveal">
-        <div>
-          <span class="eyebrow" data-editor-field="deals.subheading">Deal of the day</span>
-          <h2 data-editor-field="deals.heading" style="font-size:clamp(26px,4vw,36px);margin-top:8px;">One sharp deal. One short timer.</h2>
-          <p data-editor-field="deals.copy" style="color:#e8e8e8;max-width:520px;margin-top:12px;">A premium orange-black banner built to move the best-value product before the countdown runs out.</p>
-          <div class="countdown" id="homeCountdown">
-            <div><b id="deal-h">06</b><span>HRS</span></div>
-            <div><b id="deal-m">12</b><span>MIN</span></div>
-            <div><b id="deal-s">45</b><span>SEC</span></div>
-          </div>
-          <a href="offers.html" class="btn btn-primary" style="margin-top:24px;">Claim Now</a>
-        </div>
-        <div id="dealSpotlight"></div>
-      </div>
-    </div>
+  <section class="section-tight" data-home-section="deals" id="promoBannerMount" hidden>
+    <div class="container"><div id="promoBanner"></div></div>
   </section>
 
   <section class="section" data-home-section="featured">
@@ -177,6 +191,45 @@
     </div>
   </section>
 
+  <!-- Fitness / training promotion, sitting between the product grids and the
+       newsletter so the page ends on a call to shop. -->
+  <section class="section-tight" data-home-section="fitness">
+    <div class="container">
+      <div class="promo-banner promo-fitness reveal">
+        <div class="promo-text">
+          <span class="promo-eyebrow">Train. Fuel. Recover.</span>
+          <h2>Built for the days<br>you show up anyway</h2>
+          <p class="promo-copy">Lab-tested whey, creatine, pre-workout and recovery essentials —
+            the stack that turns consistent training into visible strength.</p>
+          <div class="promo-actions">
+            <a class="btn btn-primary" href="marketplace.html">Shop Supplements</a>
+            <a class="btn btn-outline-light" href="marketplace.html?sort=popularity">See Best Sellers</a>
+          </div>
+          <div class="promo-stats">
+            <div><b>100%</b><span>Authentic stock</span></div>
+            <div><b>24 hr</b><span>Metro dispatch</span></div>
+            <div><b>4.8/5</b><span>Customer rating</span></div>
+          </div>
+        </div>
+        <div class="promo-visual" aria-hidden="true">
+          <svg viewBox="0 0 240 200" role="presentation" focusable="false">
+            <defs>
+              <linearGradient id="ftBar" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ff9a3c"/><stop offset="1" stop-color="#ff7a00"/>
+              </linearGradient>
+            </defs>
+            <rect x="18" y="88" width="204" height="16" rx="8" fill="#3a3a3a"/>
+            <rect x="52" y="66" width="26" height="60" rx="9" fill="url(#ftBar)"/>
+            <rect x="162" y="66" width="26" height="60" rx="9" fill="url(#ftBar)"/>
+            <rect x="26" y="76" width="20" height="40" rx="7" fill="#d96a00"/>
+            <rect x="194" y="76" width="20" height="40" rx="7" fill="#d96a00"/>
+            <path d="M104 150h32l-9 26 26-38h-32l9-24z" fill="#ffb066"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="section-tight" data-home-section="newsletter">
     <div class="container">
       <div class="newsletter reveal">
@@ -195,7 +248,7 @@
 
 <footer class="site" id="site-footer" data-home-section="footer"></footer>
 
-<script src="js/config.js"></script>
+<script src="js/config.js?v=2"></script>
 <script src="js/data.js"></script>
 <script src="js/core.js"></script>
 <script src="js/home.js"></script>

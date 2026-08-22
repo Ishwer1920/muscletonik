@@ -32,4 +32,9 @@ def api_not_found(request):
 def static_frontend(request, path=""):
     """Mirror of express.static(rootDir) — serves index.html for a bare
     directory request, since django.views.static.serve won't do that itself."""
-    return serve(request, path or "index.html", document_root=str(mt_env.REPO_ROOT))
+    response = serve(request, path or "index.html", document_root=str(mt_env.REPO_ROOT))
+    # serve() sends only Last-Modified, so browsers heuristically cache the
+    # frontend JS and keep running a stale copy after an edit. This is the
+    # dev-only frontend mount, so force revalidation on every request.
+    response["Cache-Control"] = "no-cache, must-revalidate"
+    return response
