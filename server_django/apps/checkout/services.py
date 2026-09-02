@@ -34,6 +34,9 @@ def resolve_line_items(items):
         {
             "productId": int(item.get("id") or item.get("productId")),
             "quantity": max(1, int(item.get("qty") or item.get("quantity") or 1)),
+            # Which combo, if any, this line was added as part of. Only a
+            # tagged line can ever be priced at a combo rate.
+            "comboId": str(item.get("comboId") or "").strip() or None,
         }
         for item in items
     ]
@@ -51,9 +54,14 @@ def resolve_line_items(items):
         line_items.append({
             "product": product,
             "quantity": item["quantity"],
+            "comboId": item.get("comboId"),
             # Crazy Deal price wins when one is set — see pricing.effective_price.
             "lineTotal": pricing.round_money(pricing.effective_price(product) * item["quantity"]),
         })
+
+    # Re-prices any intact combo group at its flat price, and untags the lines
+    # of a combo the cart no longer satisfies so they stay at normal prices.
+    pricing.apply_combo_pricing(line_items)
     return line_items
 
 
@@ -63,6 +71,7 @@ def create_checkout_session(user_id, payload):
         raise ApiError("User not found", 404)
 
     line_items = resolve_line_items(payload.get("items"))
+    combos = pricing.describe_applied_combos(line_items)
 
     subtotal = sum(li["lineTotal"] for li in line_items)
     # Full evaluation, not just a rate lookup: scope (brand/category/product),
@@ -78,8 +87,10 @@ def create_checkout_session(user_id, payload):
         shipping = 0
     # Per-line so a product carrying its own GST override is taxed at its own
     # rate; the coupon is spread across lines inside the helper.
-    gst = pricing.gst_for_line_items(line_items, coupon["amount"])
-    total = after_coupon + shipping + gst
+    gst = pricing.gst_breakdown_for_line_items(line_items, coupon["amount"])
+    # Inclusive tax is already inside the line prices, so only the exclusive
+    # share is added to what the customer pays.
+    total = after_coupon + shipping + gst["added"]
 
     shipping_address = payload.get("shippingAddress")
     shipping_address = shipping_address if isinstance(shipping_address, dict) else {}
@@ -92,11 +103,16 @@ def create_checkout_session(user_id, payload):
         "coupon": coupon,
         "summary": {
             "subtotal": subtotal, "discount": coupon["amount"], "shipping": shipping,
-            "gst": gst, "total": total, "couponCode": coupon["code"] if coupon["ok"] else "",
+            "gst": gst["total"], "gstAdded": gst["added"], "gstIncluded": gst["included"],
+            # Drives the "Inclusive of all taxes" line under the total.
+            "taxInclusive": gst["included"] > 0 and gst["added"] == 0,
+            "total": total, "couponCode": coupon["code"] if coupon["ok"] else "",
             "couponApplied": bool(coupon["ok"] and coupon["code"]),
             "couponMessage": coupon["reason"],
             "couponFreeShipping": bool(coupon["ok"] and coupon["freeShipping"]),
             "couponDetail": pricing.coupon_public_view(coupon.get("coupon")),
+            # Which bundles held, and what they saved - so the cart can say so.
+            "combos": combos,
         },
     }
 

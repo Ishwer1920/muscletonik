@@ -126,7 +126,10 @@ function renderProductDetails() {
   document.getElementById("pdDesc").textContent = p.desc;
   document.getElementById("pdBenefits").innerHTML = renderBenefitList(p);
   document.getElementById("pdIngredients").textContent = p.ingredients;
-  document.getElementById("pdReviews").innerHTML = renderReviewList(p);
+  // Real reviews for THIS product, loaded from the API (the old list showed
+  // the same three site-wide testimonials on every product).
+  if (window.MTReviews) MTReviews.mountProduct(p.id);
+  else document.getElementById("pdReviews").innerHTML = renderReviewList(p);
   document.getElementById("pdFaq").innerHTML = `
     <div class="accordion-item"><div class="q" onclick="this.parentElement.classList.toggle('open')">Is this safe to take daily? <span class="plus">+</span></div><div class="a">Yes, when used as directed on the label. If you have an existing medical condition, check with a healthcare provider first.</div></div>
     <div class="accordion-item"><div class="q" onclick="this.parentElement.classList.toggle('open')">How should I store it? <span class="plus">+</span></div><div class="a">Store in a cool, dry place away from direct sunlight, and reseal tightly after each use.</div></div>

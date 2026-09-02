@@ -48,6 +48,9 @@ class Product(me.Document):
     # Per-product GST override, as a percent (18 means 18%). None/unset means
     # "use the store default" from Admin -> Tax (SiteSetting key "taxes").
     gstRate = me.FloatField(min_value=0, max_value=100, null=True, default=None)
+    # Whether this product's price already contains its GST. "" means inherit
+    # the brand's setting, then the store default (Admin -> Tax & GST).
+    taxMode = me.StringField(choices=["", "inclusive", "exclusive"], default="")
     digital = me.BooleanField(default=False)
     hidden = me.BooleanField(default=False)
     planType = me.StringField(default="")
@@ -90,14 +93,60 @@ class Product(me.Document):
     save = _timestamped_save
 
 
+class ComboItem(me.EmbeddedDocument):
+    """One product inside a combo, by its public catalogId."""
+    catalogId = me.IntField(required=True)
+    quantity = me.IntField(default=1, min_value=1)
+
+
+class Combo(me.Document):
+    """A fixed-price bundle shown under Crazy Deals.
+
+    The price is a flat figure for the whole set, NOT a per-product discount:
+    buying the same products one at a time from the catalogue costs the normal
+    total. The bundle price only applies while the cart still holds exactly the
+    products it lists, which is what makes removing one of them fall back to
+    regular pricing (see pricing.apply_combo_pricing).
+    """
+
+    name = me.StringField(required=True)
+    description = me.StringField(default="")
+    image = me.StringField(default="")
+    items = me.EmbeddedDocumentListField(ComboItem, default=list)
+    # What the whole bundle sells for. Compared against the sum of the normal
+    # prices at quote time; a combo that saves nothing is simply not applied.
+    comboPrice = me.FloatField(default=0, min_value=0)
+    isActive = me.BooleanField(default=True)
+    displayOrder = me.IntField(default=0)
+
+    createdAt = me.DateTimeField()
+    updatedAt = me.DateTimeField()
+
+    meta = {
+        "collection": "combos",
+        "indexes": ["isActive", "displayOrder"],
+        "strict": False,
+    }
+
+    save = _timestamped_save
+
+
 class Review(me.Document):
     productId = me.IntField(required=True)
     productName = me.StringField(required=True)
     customerName = me.StringField(required=True)
     customerEmail = me.StringField(default="")
     rating = me.FloatField(required=True, min_value=1, max_value=5)
-    text = me.StringField(required=True)
+    # A star rating on its own is a valid review: the written part is optional
+    # for shoppers, so this can no longer be required.
+    text = me.StringField(default="")
     imageUrl = me.StringField(default="")
+    # Who left it. Set for reviews submitted from the storefront; blank for
+    # the ones an admin types in by hand.
+    user = me.StringField(default="")
+    # True when this customer has actually bought the product, which is what
+    # the "Verified purchase" badge on the storefront reads.
+    verifiedPurchase = me.BooleanField(default=False)
     status = me.StringField(choices=["pending", "approved", "rejected", "spam"], default="pending")
     featured = me.BooleanField(default=False)
     reply = me.StringField(default="")
@@ -111,6 +160,9 @@ class Review(me.Document):
         "indexes": [
             "productId",
             {"fields": ["status", "featured", "-createdAt"]},
+            # One review per customer per product - enforced in reviews.py,
+            # which updates the existing row instead of inserting a second.
+            {"fields": ["productId", "user"]},
         ],
         "strict": False,
     }

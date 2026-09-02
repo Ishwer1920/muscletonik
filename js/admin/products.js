@@ -34,6 +34,21 @@
   let lookups = { brands: [], categories: [] };
   try { lookups = await AdminShell.api("/catalog/lookups", { method: "GET" }); } catch {}
 
+  // One badge per collection the product belongs to, so the table shows the
+  // same set of flags the editor can toggle.
+  function flagBadges(p) {
+    return [
+      ["featured", "Featured", "orange"],
+      ["trending", "Trending", "gray"],
+      ["deal", "Deal", "amber"],
+      ["crazyDeal", "Crazy Deal", "amber"],
+      ["newArrival", "New Arrival", "green"],
+      ["nearExpiry", "Near Expiry", "gray"],
+    ].filter(([key]) => p[key])
+     .map(([, label, tone]) => `<span class="badge ${tone}">${label}</span>`)
+     .join(" ") || '<span style="color:var(--a-muted);">-</span>';
+  }
+
   async function load() {
     const t = document.getElementById("prodTable");
     try {
@@ -59,7 +74,7 @@
             <td>${AdminShell.esc(p.category)}</td>
             <td style="font-weight:700;">${AdminShell.inr(p.sellingPrice)}${p.mrp > p.sellingPrice ? `<br><span style="color:var(--a-muted);font-weight:500;font-size:12px;text-decoration:line-through;">${AdminShell.inr(p.mrp)}</span>` : ""}</td>
             <td style="font-weight:700;">${p.stock}</td>
-            <td>${p.featured ? '<span class="badge orange">Featured</span> ' : ""}${p.deal ? '<span class="badge amber">Deal</span>' : ""}</td>
+            <td style="line-height:1.9;">${flagBadges(p)}</td>
             <td><span class="badge ${p.status === "active" ? "green" : "gray"}">${p.status}</span></td>
             <td style="display:flex;gap:8px;">
               <button class="a-btn ghost edit-btn" data-id="${p.id}" style="padding:7px 12px;">Edit</button>
@@ -72,6 +87,10 @@
       t.innerHTML = `<tbody><tr><td style="color:var(--a-red);">${AdminShell.esc(err.message)}</td></tr></tbody>`;
     }
   }
+
+  // Every boolean the product editor owns. Used both to render the checkboxes
+  // and to serialize them, so the two can never drift apart.
+  const FLAG_FIELDS = ["featured", "trending", "deal", "crazyDeal", "newArrival", "nearExpiry"];
 
   const back = document.getElementById("prodModalBack");
   const form = document.getElementById("prodForm");
@@ -93,6 +112,12 @@
   }
   function checkbox(label, name, checked) {
     return `<label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;margin-right:18px;"><input type="checkbox" name="${name}" ${checked ? "checked" : ""}> ${label}</label>`;
+  }
+
+  // <input type="date"> only accepts YYYY-MM-DD, but the API returns a full
+  // ISO timestamp (or null), so trim it back to the date part.
+  function dateValue(iso) {
+    return typeof iso === "string" && iso.length >= 10 ? iso.slice(0, 10) : "";
   }
 
   function toTextList(list) {
@@ -165,10 +190,38 @@
             ${field("SEO title", "seoTitle", p.seoTitle || "")}
             ${select("Status", "status", [{ id: "active", name: "Active" }, { id: "archived", name: "Archived" }], p.status || "active")}
           </div>
-          <div style="display:flex;flex-wrap:wrap;margin-top:6px;">
-            ${checkbox("Featured", "featured", p.featured)}
-            ${checkbox("Deal", "deal", p.deal)}
-            ${checkbox("Trending", "trending", p.trending)}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            ${field("GST rate % (blank = inherit)", "gstRate", p.gstRate == null ? "" : p.gstRate, "number", "min=0 max=100 step=0.01")}
+            ${select("GST on this price", "taxMode", [
+              { id: "", name: "Use brand / store default" },
+              { id: "exclusive", name: "Exclusive - add GST at checkout" },
+              { id: "inclusive", name: "Inclusive - GST already in the price" }
+            ], p.taxMode || "")}
+          </div>
+          <p style="font-size:12px;color:var(--a-muted);margin:-4px 0 0;">
+            Inclusive products charge the listed price and show "Inclusive of all taxes" at checkout.
+          </p>
+          <div style="margin-top:14px;border-top:1px solid var(--a-border);padding-top:14px;">
+            <h4 style="margin-bottom:4px;font-size:14px;">Storefront collections</h4>
+            <p style="font-size:12px;color:var(--a-muted);margin:0 0 10px;">
+              Ticking a box puts this product in that collection on the site.
+            </p>
+            <div style="display:flex;flex-wrap:wrap;gap:2px 0;">
+              ${checkbox("Featured", "featured", p.featured)}
+              ${checkbox("Trending", "trending", p.trending)}
+              ${checkbox("Deal", "deal", p.deal)}
+              ${checkbox("Crazy Deal", "crazyDeal", p.crazyDeal)}
+              ${checkbox("New Arrival", "newArrival", p.newArrival)}
+              ${checkbox("Near Expiry", "nearExpiry", p.nearExpiry)}
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px;">
+              ${field("Deal price Rs", "crazyDealPrice", p.crazyDealPrice || "", "number", "min=0 step=1")}
+              ${field("Arrival date", "arrivalDate", dateValue(p.arrivalDate), "date")}
+              ${field("Expiry date", "expiryDate", dateValue(p.expiryDate), "date")}
+            </div>
+            <p style="font-size:12px;color:var(--a-muted);margin:-4px 0 0;">
+              Crazy Deal price replaces the selling price while the deal runs - leave blank to sell at the normal price.
+            </p>
           </div>
           <div style="margin-top:14px;border-top:1px solid var(--a-border);padding-top:14px;">
             <h4 style="margin-bottom:10px;font-size:14px;">Media</h4>
@@ -393,12 +446,12 @@
     const fd = new FormData(form);
     const payload = new FormData();
     for (const [k, v] of fd.entries()) {
-      if (k === "featured" || k === "deal" || k === "trending") {
-        payload.set(k, v === "on" ? "true" : "false");
-      } else if (k !== "images") {
-        payload.set(k, v);
-      }
+      if (!FLAG_FIELDS.includes(k) && k !== "images") payload.set(k, v);
     }
+    // An unticked checkbox is simply absent from FormData, so reading only
+    // what the form submitted could never turn a flag back off. Send every
+    // flag explicitly instead.
+    FLAG_FIELDS.forEach(name => payload.set(name, fd.get(name) === "on" ? "true" : "false"));
     const fileInput = document.getElementById("prodFiles");
     Array.from(fileInput?.files || []).forEach(file => payload.append("images", file));
     payload.set("imageUrls", JSON.stringify(parseLines(fd.get("imageUrls") || "")));
@@ -406,6 +459,8 @@
     ["sellingPrice", "mrp", "stock", "calories", "servings"].forEach(n => {
       if (!payload.get(n)) payload.delete(n);
     });
+    // These stay in the payload when blank - an empty value is how the admin
+    // clears a deal price or a date (see CLEARABLE in views_products.py).
     try {
       const data = editingId
         ? await AdminShell.api(`/admin/products/${editingId}`, { method: "PATCH", body: payload })

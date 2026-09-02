@@ -7,6 +7,7 @@ from rest_framework.response import Response
 
 from apps.audit.utils import write_audit
 from apps.catalog.models import Review
+from apps.catalog.reviews import recalc_product_rating
 from apps.core.permissions import RequireAdminPanel, RequirePermission
 from apps.core.serialization import to_jsonable
 
@@ -35,9 +36,9 @@ def _validate_review_body(data, partial=False):
                 raise ValueError
         except (TypeError, ValueError):
             errors.append({"msg": "Rating must be 1-5.", "param": "rating"})
-    if not partial or data.get("text") is not None:
-        if not (3 <= len(str(data.get("text") or "").strip()) <= 2000):
-            errors.append({"msg": "Review text is required.", "param": "text"})
+    # The written part is optional - a star rating on its own is a review.
+    if len(str(data.get("text") or "").strip()) > 2000:
+        errors.append({"msg": "Review must be 2000 characters or fewer.", "param": "text"})
     if data.get("status") is not None and data.get("status") not in STATUSES:
         errors.append({"msg": "Invalid status.", "param": "status"})
     return errors
@@ -102,11 +103,12 @@ def create_review(request):
     review = Review(
         productId=int(request.data["productId"]), productName=request.data["productName"],
         customerName=request.data["customerName"], customerEmail=request.data.get("customerEmail") or "",
-        rating=int(request.data["rating"]), text=request.data["text"],
+        rating=int(request.data["rating"]), text=request.data.get("text") or "",
         imageUrl=request.data.get("imageUrl") or "", status=request.data.get("status") or "pending",
         featured=(featured is True or featured == "true"), reply=request.data.get("reply") or "",
         tags=request.data.get("tags") if isinstance(request.data.get("tags"), list) else [],
     ).save()
+    recalc_product_rating(review.productId)
     write_audit(request, "review.create", review.productName, to_jsonable(review))
     return Response({"message": "Review created.", "review": to_jsonable(review)}, status=201)
 
@@ -141,6 +143,7 @@ def update_review(request, review_id):
     if isinstance(request.data.get("tags"), list):
         review.tags = request.data["tags"]
     review.save()
+    recalc_product_rating(review.productId)
     write_audit(request, "review.update", review.productName, {"before": before, "after": to_jsonable(review)})
     return Response({"message": "Review updated.", "review": to_jsonable(review)})
 
@@ -154,7 +157,9 @@ def delete_review(request, review_id):
     if not review:
         return Response({"message": "Review not found"}, status=404)
     write_audit(request, "review.delete", review.productName, to_jsonable(review))
+    product_id = review.productId
     review.delete()
+    recalc_product_rating(product_id)
     return Response({"message": "Review deleted."})
 
 

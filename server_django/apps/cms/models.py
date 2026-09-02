@@ -57,6 +57,9 @@ class Banner(me.Document):
     # hero banner; the other two are the composed layouts. Defaulting to
     # "slide" keeps every existing banner rendering exactly as before.
     layout = me.StringField(choices=["slide", "promo", "festive"], default="slide")
+    # Which page the banner belongs to. Existing records have no value, so
+    # "home" is the default and nothing moves until an admin repoints it.
+    placement = me.StringField(choices=["home", "crazy-deals"], default="home")
     name = me.StringField(default="")            # admin-facing label only
 
     backgroundColor = me.StringField(default="")  # CSS colour or gradient
@@ -72,6 +75,12 @@ class Banner(me.Document):
     productImage = me.StringField(default="")
     logo = me.StringField(default="")
     logoSize = me.IntField(default=120, min_value=24, max_value=480)
+    # Where the logo sits on a festive panel, or "hidden" to drop it while
+    # keeping the artwork on the record. "right" is how the panel rendered
+    # before this was configurable, so it stays the default.
+    logoPosition = me.StringField(
+        choices=["left", "center", "right", "hidden"], default="right"
+    )
 
     # Optional link to a real catalogue product, by its public catalogId. The
     # banner stores only the id — name, price and photo are read live from the

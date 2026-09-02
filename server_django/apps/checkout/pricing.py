@@ -31,6 +31,15 @@ SHIPPING_FEE = 79
 # ---------------------------------------------------------------------------
 DEFAULT_GST_PERCENT = 5.0
 
+# Whether a price already contains its GST.
+#   "exclusive" - GST is added on top at checkout (the original behaviour).
+#   "inclusive" - the listed price already contains GST; the tax is extracted
+#                 for the invoice but adds nothing to what the customer pays,
+#                 which is what "Inclusive of all taxes" means on the total.
+# Resolved per product: product override -> brand override -> store default.
+DEFAULT_TAX_MODE = "exclusive"
+TAX_MODES = ("inclusive", "exclusive")
+
 # Kept so any older import of pricing.GST_RATE still resolves. New code should
 # call default_gst_rate() / product_gst_rate() so admin edits are honoured.
 GST_RATE = DEFAULT_GST_PERCENT / 100
@@ -47,6 +56,64 @@ def _clean_percent(value):
     if percent < 0 or percent > 100:
         return None
     return percent
+
+
+def _clean_tax_mode(value):
+    """A usable tax mode, or None when unset/garbage (meaning "inherit")."""
+    mode = str(value or "").strip().lower()
+    return mode if mode in TAX_MODES else None
+
+
+def default_tax_mode():
+    """Store-wide inclusive/exclusive setting from Admin -> Tax & GST."""
+    from apps.cms.models import SiteSetting
+    try:
+        doc = SiteSetting.objects(key="taxes").first()
+    except Exception:
+        return DEFAULT_TAX_MODE
+    value = doc.value if doc else None
+    if isinstance(value, dict):
+        mode = _clean_tax_mode(value.get("taxMode"))
+        if mode is not None:
+            return mode
+    return DEFAULT_TAX_MODE
+
+
+def brand_tax_modes():
+    """{brand-id: mode} for brands carrying their own inclusive/exclusive
+    override, alongside the GST rate override on the same brand record."""
+    from apps.catalog import taxonomy
+    modes = {}
+    try:
+        brands = taxonomy.get_brands()
+    except Exception:
+        return modes
+    for brand in brands or []:
+        if not isinstance(brand, dict):
+            continue
+        mode = _clean_tax_mode(brand.get("taxMode"))
+        if mode is not None and brand.get("id"):
+            modes[str(brand["id"]).strip().lower()] = mode
+    return modes
+
+
+def product_tax_mode(product, default_mode=None, brand_modes=None):
+    """Inclusive or exclusive for one product, by the same priority as the
+    rate: product override -> brand override -> store default."""
+    if default_mode is None:
+        default_mode = default_tax_mode()
+
+    own = _clean_tax_mode(getattr(product, "taxMode", None))
+    if own is not None:
+        return own
+
+    if brand_modes is None:
+        brand_modes = brand_tax_modes()
+    brand = str(getattr(product, "brand", "") or "").strip().lower()
+    if brand and brand in brand_modes:
+        return brand_modes[brand]
+
+    return default_mode
 
 
 def default_gst_rate():
@@ -160,6 +227,48 @@ def gst_for_line_items(line_items, discount=0):
     return total
 
 
+def gst_breakdown_for_line_items(line_items, discount=0):
+    """Split a cart's GST into what gets added on top and what is already in
+    the price, so the caller knows how much to actually charge.
+
+        {"added": <charged on top>, "included": <already in the price>,
+         "total": added + included}
+
+    An exclusive line is taxed the usual way. An inclusive line's price is
+    treated as tax-inclusive, so the tax is extracted out of it
+    (price * rate / (100 + rate)) rather than added to it: the customer pays
+    the listed price and the tax is only broken out for the invoice.
+    """
+    empty = {"added": 0, "included": 0, "total": 0}
+    lines = list(line_items or [])
+    if not lines or not gst_enabled():
+        return empty
+
+    default_percent = default_gst_rate()
+    brand_rates = brand_gst_rates()
+    default_mode = default_tax_mode()
+    brand_modes = brand_tax_modes()
+
+    subtotal = sum(round_money(li.get("lineTotal", 0)) for li in lines)
+    discount = min(round_money(discount), subtotal)
+    if subtotal <= 0:
+        return empty
+
+    added = 0
+    included = 0
+    for li in lines:
+        line_total = round_money(li.get("lineTotal", 0))
+        share = round_money(discount * line_total / subtotal) if discount else 0
+        taxable = max(0, line_total - share)
+        product = li.get("product")
+        rate = product_gst_rate(product, default_percent, brand_rates)
+        if product_tax_mode(product, default_mode, brand_modes) == "inclusive":
+            included += round_money(taxable * rate / (100 + rate)) if rate else 0
+        else:
+            added += round_money(taxable * rate / 100)
+    return {"added": added, "included": included, "total": added + included}
+
+
 def effective_price(product):
     """What a product actually sells for right now.
 
@@ -175,6 +284,130 @@ def effective_price(product):
     except (TypeError, ValueError):
         return selling
     return deal if 0 < deal < selling else selling
+
+
+# ---------------------------------------------------------------------------
+# Combos (Admin -> Merchandising -> Combo offers)
+#
+# A combo is a flat price for a whole set of products. It applies only while
+# the cart still holds exactly what the combo lists - drop one item and every
+# remaining line goes back to its normal price, which is the behaviour the
+# storefront promises. Buying the same products individually never triggers it,
+# because a line only counts toward a combo when the client tagged it with that
+# combo's id.
+# ---------------------------------------------------------------------------
+
+
+def _combo_multiple(present, required):
+    """How many whole combos the tagged lines make up, or 0 if they do not.
+
+    Exactly N of every required item means N combos. Anything else - a missing
+    product, an extra one, a quantity that is not the same multiple across the
+    board - means the combo does not hold.
+    """
+    if set(present) != set(required):
+        return 0
+    multiple = None
+    for catalog_id, needed in required.items():
+        have = present.get(catalog_id, 0)
+        if needed <= 0 or have <= 0 or have % needed:
+            return 0
+        n = have // needed
+        if multiple is None:
+            multiple = n
+        elif n != multiple:
+            return 0
+    return multiple or 0
+
+
+def apply_combo_pricing(line_items):
+    """Re-price intact combo groups in place, at their fixed combo price.
+
+    Each line's share of that price is proportional to what it would have cost
+    on its own, so per-product GST rates still apply to a sensible base. Any
+    rounding remainder lands on the last line, so the shares always add up to
+    the combo price exactly.
+
+    Returns a list describing the combos that were applied, for the summary.
+    A line whose combo did not hold has its comboId cleared, so callers can
+    tell the customer their bundle was broken.
+    """
+    from apps.catalog.models import Combo
+
+    groups = {}
+    for li in line_items:
+        combo_id = li.get("comboId")
+        if combo_id:
+            groups.setdefault(str(combo_id), []).append(li)
+    if not groups:
+        return []
+
+    applied = []
+    for combo_id, lines in groups.items():
+        combo = None
+        try:
+            combo = Combo.objects(id=combo_id, isActive=True).first()
+        except Exception:
+            combo = None
+
+        required = {}
+        if combo:
+            for item in combo.items or []:
+                required[int(item.catalogId)] = required.get(int(item.catalogId), 0) + int(item.quantity or 1)
+
+        present = {}
+        for li in lines:
+            catalog_id = int(getattr(li["product"], "catalogId", 0) or 0)
+            present[catalog_id] = present.get(catalog_id, 0) + int(li["quantity"])
+
+        multiple = _combo_multiple(present, required) if combo else 0
+        normal_total = sum(round_money(li["lineTotal"]) for li in lines)
+        target = round_money(float(combo.comboPrice or 0) * multiple) if multiple else 0
+
+        # No combo, a broken set, or a "deal" that saves nothing: leave the
+        # lines at their normal prices and untag them.
+        if not multiple or target <= 0 or target >= normal_total or normal_total <= 0:
+            for li in lines:
+                li["comboId"] = None
+                li["combo"] = None
+            continue
+
+        allocated = 0
+        for index, li in enumerate(lines):
+            if index == len(lines) - 1:
+                share = target - allocated
+            else:
+                share = round_money(target * round_money(li["lineTotal"]) / normal_total)
+                allocated += share
+            li["lineTotal"] = max(0, share)
+
+        summary = {
+            "comboId": combo_id,
+            "name": combo.name,
+            "quantity": multiple,
+            "comboPrice": target,
+            "normalTotal": normal_total,
+            "saving": normal_total - target,
+        }
+        for li in lines:
+            li["combo"] = summary
+        applied.append(summary)
+    return applied
+
+
+def describe_applied_combos(line_items):
+    """The combos that actually held for this cart, one entry each.
+
+    Read back off the line items rather than returned straight from
+    apply_combo_pricing, because the pricing runs inside resolve_line_items
+    while the summary is assembled by its callers.
+    """
+    seen = {}
+    for li in line_items or []:
+        info = li.get("combo")
+        if info and info.get("comboId") not in seen:
+            seen[info["comboId"]] = info
+    return list(seen.values())
 
 
 def round_money(n):

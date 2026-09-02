@@ -136,7 +136,157 @@ function filteredSorted() {
   return list;
 }
 
+/* ---------------------------------------------------------------------------
+   COLLECTION BANNERS
+
+   The same Banner records the homepage hero uses, filtered to the ones an
+   admin pointed at this page (Admin -> Banners -> "Shows on"). Any number of
+   them share one slot and rotate; each carries its own destination, already
+   resolved server-side (a product, a page such as the BMI calculator, a
+   collection or a plain URL), so nothing is hardcoded here.
+   --------------------------------------------------------------------------- */
+var cdBannerTimer = null;
+var cdBannerIndex = 0;
+
+function collectionBanners() {
+  var all = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.banners) || [];
+  if (state.collection !== "crazy-deals") return [];
+  return all.filter(function (b) {
+    return b && b.placement === "crazy-deals" && (b.image || b.imageMobile);
+  });
+}
+
+function renderCollectionBanners() {
+  var host = document.getElementById("cdBanners");
+  if (!host) return;
+  var banners = collectionBanners();
+  clearInterval(cdBannerTimer);
+
+  if (!banners.length) {
+    host.innerHTML = "";
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  cdBannerIndex = 0;
+
+  host.innerHTML =
+    '<div class="cd-banner-track" id="cdBannerTrack">' +
+      banners.map(function (b, i) {
+        var img = '<img src="' + escapeHtml(b.image || b.imageMobile) + '" alt="' +
+          escapeHtml(b.alt || b.title || "Offer") + '"' + (i ? ' loading="lazy"' : "") + '>';
+        var caption = (b.title || b.ctaText)
+          ? '<span class="cd-banner-cap">' +
+              (b.title ? "<b>" + escapeHtml(b.title) + "</b>" : "") +
+              (b.subtitle ? "<span>" + escapeHtml(b.subtitle) + "</span>" : "") +
+            "</span>"
+          : "";
+        // A banner with a destination is a link; one without is just artwork.
+        return b.href
+          ? '<a class="cd-banner-slide" href="' + escapeHtml(b.href) + '">' + img + caption + "</a>"
+          : '<span class="cd-banner-slide">' + img + caption + "</span>";
+      }).join("") +
+    "</div>" +
+    (banners.length > 1
+      ? '<div class="cd-banner-dots" id="cdBannerDots">' +
+          banners.map(function (b, i) {
+            return '<button type="button" class="' + (i ? "" : "active") +
+              '" data-cd-banner="' + i + '" aria-label="Show offer ' + (i + 1) + '"></button>';
+          }).join("") +
+        "</div>"
+      : "");
+
+  var track = document.getElementById("cdBannerTrack");
+  var dots = host.querySelectorAll("[data-cd-banner]");
+
+  function show(index) {
+    cdBannerIndex = (index + banners.length) % banners.length;
+    track.style.transform = "translateX(-" + (cdBannerIndex * 100) + "%)";
+    Array.prototype.forEach.call(dots, function (dot, i) {
+      dot.classList.toggle("active", i === cdBannerIndex);
+    });
+  }
+
+  Array.prototype.forEach.call(dots, function (dot) {
+    dot.addEventListener("click", function () {
+      show(Number(dot.getAttribute("data-cd-banner")));
+      restart();
+    });
+  });
+
+  function restart() {
+    clearInterval(cdBannerTimer);
+    if (banners.length > 1) {
+      cdBannerTimer = setInterval(function () { show(cdBannerIndex + 1); }, 5500);
+    }
+  }
+  // Pausing on hover keeps a banner still while it is being read.
+  host.addEventListener("mouseenter", function () { clearInterval(cdBannerTimer); });
+  host.addEventListener("mouseleave", restart);
+  restart();
+}
+
+// Combo offers, shown above the products on the Crazy Deals collection only.
+// The whole bundle goes into the cart in one click, each line tagged with the
+// combo id so checkout prices the set at its flat price.
+function renderCombos() {
+  const host = document.getElementById("comboRail");
+  if (!host) return;
+  const combos = state.collection === "crazy-deals" ? (COMBOS || []) : [];
+  if (!combos.length) {
+    host.innerHTML = "";
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="combo-rail-head">
+      <h3>Combo offers</h3>
+      <p>Buy the set together and pay one bundled price. Prices revert to normal if you remove an item.</p>
+    </div>
+    <div class="combo-rail-grid">
+      ${combos.map(combo => `
+        <article class="combo-card${combo.image ? " has-art" : ""}">
+          ${combo.image
+            // The admin's own artwork leads the card when there is one; the
+            // product collage is the fallback so a combo without a photo is
+            // still recognisable.
+            ? `<div class="combo-art"><img src="${escapeHtml(combo.image)}" alt="${escapeHtml(combo.name)}" loading="lazy">
+                 <span class="combo-art-price">${formatINR(combo.comboPrice)}</span>
+               </div>`
+            : `<div class="combo-card-items">
+                ${combo.items.slice(0, 4).map(item => `
+                  <div class="combo-card-item">
+                    <span class="combo-thumb">${item.image
+                      ? `<img src="${escapeHtml(item.image)}" alt="" loading="lazy">`
+                      : ""}</span>
+                    <span class="combo-item-name">${escapeHtml(item.name)}${item.quantity > 1 ? ` &times;${item.quantity}` : ""}</span>
+                  </div>`).join('<span class="combo-plus">+</span>')}
+                ${combo.items.length > 4 ? `<span class="combo-more">+${combo.items.length - 4} more</span>` : ""}
+              </div>`}
+          <h4>${escapeHtml(combo.name)}</h4>
+          ${combo.description ? `<p class="combo-desc">${escapeHtml(combo.description)}</p>` : ""}
+          <div class="combo-price-row">
+            <b>${formatINR(combo.comboPrice)}</b>
+            <s>${formatINR(combo.normalTotal)}</s>
+            <span class="combo-save-pill">Save ${formatINR(combo.saving)}</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-block" data-combo="${escapeHtml(combo.id)}">Grab this combo</button>
+        </article>`).join("")}
+    </div>`;
+
+  host.querySelectorAll("[data-combo]").forEach(button => {
+    button.addEventListener("click", () => {
+      const combo = getComboById(button.getAttribute("data-combo"));
+      if (!combo) return;
+      Cart.addCombo(combo);
+      window.location.href = "cart.html";
+    });
+  });
+}
+
 function renderProducts() {
+  renderCombos();
   const list = filteredSorted();
   document.getElementById("resultCount").textContent = list.length + " products found";
   const totalPages = Math.max(1, Math.ceil(list.length / state.perPage));
@@ -214,5 +364,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   buildFilters();
   document.getElementById("priceRange").value = state.maxPrice;
   document.getElementById("priceLabel").textContent = formatINR(state.maxPrice);
+  // Once, at boot: filtering or paging must not restart the rotation.
+  renderCollectionBanners();
   renderProducts();
 });

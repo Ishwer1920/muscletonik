@@ -49,7 +49,15 @@ window.MTCheckout.cart = (function () {
       unitPrice: utils.toNumber(product.price),
       oldPrice: utils.toNumber(product.oldPrice),
       // null = no override; the store default from Admin -> Tax & GST applies.
-      gstRate: product.gstRate == null || product.gstRate === "" ? null : utils.toNumber(product.gstRate)
+      gstRate: product.gstRate == null || product.gstRate === "" ? null : utils.toNumber(product.gstRate),
+      // Brand id (not the display name above) and the product's own
+      // inclusive/exclusive setting: both feed the product -> brand -> store
+      // fallback that decides the rate and whether tax is already in the price.
+      brandId: product.brand || "",
+      taxMode: product.taxMode || "",
+      // Which bundle this line was added as part of, if any. Only a tagged
+      // line can be priced at a combo rate - see pricing.apply_combo_pricing.
+      comboId: row && row.comboId ? String(row.comboId) : null
     };
   }
 
@@ -57,23 +65,30 @@ window.MTCheckout.cart = (function () {
   // the quantities into a single line so it is only priced once.
   function load() {
     var raw = window.MTCheckout.storage.readRawCart();
-    var byId = {};
+    var byKey = {};
     var order = [];
     raw.forEach(function (row) {
       var item = toLineItem(row);
       if (!item) return;
-      if (byId[item.id]) {
-        byId[item.id].qty += item.qty;
+      // Keyed by product AND combo: the same product on its own and inside a
+      // bundle are separate lines, because only one of them is combo-priced.
+      var key = item.id + "|" + (item.comboId || "");
+      if (byKey[key]) {
+        byKey[key].qty += item.qty;
       } else {
-        byId[item.id] = item;
-        order.push(item.id);
+        byKey[key] = item;
+        order.push(key);
       }
     });
-    return order.map(function (id) {
-      var item = byId[id];
+    var lines = order.map(function (key) {
+      var item = byKey[key];
       item.lineTotal = Math.round(item.unitPrice * item.qty);
       return item;
     });
+    // Re-price intact bundles, exactly as the server will. lineTotal is
+    // rewritten in place on the objects we return.
+    if (typeof mtApplyComboPricing === "function") mtApplyComboPricing(lines);
+    return lines;
   }
 
   function normalizeCoupon(code) {
@@ -95,7 +110,7 @@ window.MTCheckout.cart = (function () {
       credentials: "include",
       body: JSON.stringify({
         couponCode: normalized,
-        items: items.map(function (i) { return { id: i.id, qty: i.qty }; })
+        items: items.map(function (i) { return { id: i.id, qty: i.qty, comboId: i.comboId || null }; })
       })
     }).then(function (res) {
       return res.json().catch(function () { return {}; });
@@ -128,14 +143,19 @@ window.MTCheckout.cart = (function () {
     var afterCoupon = subtotal - discount;
     // Each line taxed at its own product's rate; coupon spread proportionally,
     // matching pricing.gst_for_line_items() on the server.
-    var gst = window.MT_TAX
-      ? window.MT_TAX.forLines(items.map(function (i) {
-          return { product: { gstRate: i.gstRate }, lineTotal: Math.round(i.unitPrice * i.qty) };
-        }), discount)
-      : 0;
+    var taxLines = items.map(function (i) {
+      return {
+        product: { gstRate: i.gstRate, brand: i.brandId, taxMode: i.taxMode },
+        lineTotal: Math.round(i.unitPrice * i.qty)
+      };
+    });
+    var gst = window.MT_TAX && window.MT_TAX.breakdown
+      ? window.MT_TAX.breakdown(taxLines, discount)
+      : { added: 0, included: 0, total: 0 };
     var shipping = (afterCoupon > FREE_SHIPPING_OVER || afterCoupon === 0) ? 0 : SHIPPING_FEE;
     if (quote && quote.freeShipping) shipping = 0;
-    var total = afterCoupon + gst + shipping;
+    // Only tax charged on top moves the total; inclusive tax is already in it.
+    var total = afterCoupon + gst.added + shipping;
 
     return {
       subtotal: subtotal,
@@ -143,13 +163,13 @@ window.MTCheckout.cart = (function () {
       couponMessage: options.coupon ? options.coupon.message : "",
       couponFreeShipping: !!(quote && quote.freeShipping),
       discount: discount,
-      gst: gst,
+      gst: gst.total,
+      gstAdded: gst.added,
+      gstIncluded: gst.included,
       // Kept for the summary label; when a cart mixes rates this is the
       // store default and ui.js falls back to an unlabelled "GST" row.
       gstRate: window.MT_TAX ? window.MT_TAX.defaultRate() / 100 : 0,
-      gstLabel: window.MT_TAX
-        ? window.MT_TAX.label(items.map(function (i) { return { product: { gstRate: i.gstRate } }; }))
-        : "GST",
+      gstLabel: window.MT_TAX ? window.MT_TAX.label(taxLines) : "GST",
       shipping: shipping,
       total: total,
       itemCount: items.reduce(function (n, i) { return n + i.qty; }, 0)

@@ -1073,3 +1073,16 @@ th[aria-sort="ascending"] .dt-sort .dt-arrow,th[aria-sort="descending"] .dt-sort
     flex-wrap:wrap;
   }
 }
+
+/* ===========================================================
+   PHONE OVERRIDES
+   Last in the file on purpose: the premium-shell section above re-declares
+   .a-crumb and .a-search, so anything narrower has to come after it.
+   =========================================================== */
+@media (max-width:620px){
+  /* Title and search were fighting for one row and both ended up truncated
+     ("Craz Deal" / "Sear"). Every admin page repeats its title as the H1
+     directly below, so the crumb is the redundant one. */
+  .a-crumb{display:none;}
+  .a-search{flex:1 1 auto;max-width:none;}
+}

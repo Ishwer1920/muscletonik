@@ -65,7 +65,7 @@ window.MTCheckout.payment = (function () {
   // so both recompute the exact same session and totals.
   function buildSessionPayload(items, couponCode, shippingAddress, mode) {
     return {
-      items: items.map(function (i) { return { id: i.id, qty: i.qty }; }),
+      items: items.map(function (i) { return { id: i.id, qty: i.qty, comboId: i.comboId || null }; }),
       couponCode: couponCode || "",
       shippingAddress: shippingAddress || {},
       paymentMode: mode === "cod" ? "cod" : "online"

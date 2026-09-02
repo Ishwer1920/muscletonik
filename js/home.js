@@ -295,18 +295,35 @@ function promoBannerMarkup(b) {
     "</div>";
 }
 
-function festiveBannerMarkup(b) {
-  var visual;
-  if (b.logo) {
-    visual = '<div class="promo-visual"><img src="' + escapeHtml(b.logo) + '" alt="" loading="lazy" style="width:' +
-      (Number(b.logoSize) || 120) + 'px;height:auto;"></div>';
-  } else if (b.mainImage) {
-    visual = '<div class="promo-visual"><img src="' + escapeHtml(b.mainImage) + '" alt="" loading="lazy"></div>';
-  } else {
-    visual = '<div class="promo-visual" aria-hidden="true">' + festiveRakhiSvg() + "</div>";
-  }
+// Where the festive panel's logo sits, set in Admin -> Banners. Anything the
+// admin has not chosen falls back to "right", which is how the panel has
+// always rendered.
+var FESTIVE_LOGO_POSITIONS = ["left", "center", "right", "hidden"];
 
-  return '<div class="promo-banner promo-festive" style="' + bannerBackgroundStyle(b) + '">' +
+function festiveLogoPosition(b) {
+  var value = String(b.logoPosition || "right").toLowerCase();
+  return FESTIVE_LOGO_POSITIONS.indexOf(value) === -1 ? "right" : value;
+}
+
+function festiveBannerMarkup(b) {
+  var position = festiveLogoPosition(b);
+  // No built-in festival graphic: the panel shows the admin's own logo, or
+  // nothing at all. "hidden" drops it without having to delete the artwork,
+  // so the same banner can be reused with the logo turned back on later.
+  var visual = "";
+  if (position !== "hidden") {
+    if (b.logo) {
+      visual = '<div class="promo-visual"><img src="' + escapeHtml(b.logo) + '" alt="" loading="lazy" style="width:' +
+        (Number(b.logoSize) || 120) + 'px;height:auto;"></div>';
+    } else if (b.mainImage) {
+      visual = '<div class="promo-visual"><img src="' + escapeHtml(b.mainImage) + '" alt="" loading="lazy"></div>';
+    }
+  }
+  // Without artwork the copy should use the full width, not leave a gap where
+  // the logo column used to be.
+  var layout = visual ? position : "hidden";
+
+  return '<div class="promo-banner promo-festive promo-logo-' + layout + '" style="' + bannerBackgroundStyle(b) + '">' +
       (b.overlay ? '<span class="banner-scrim" style="opacity:' + (b.overlay / 100) + '"></span>' : "") +
       '<div class="promo-text">' +
         (b.offerText ? '<span class="promo-eyebrow">' + escapeHtml(b.offerText) + "</span>" : "") +
@@ -322,27 +339,11 @@ function festiveBannerMarkup(b) {
     "</div>";
 }
 
-// Fallback artwork when no logo or image is configured, so the festive layout
-// never renders as a bare colour block.
-function festiveRakhiSvg() {
-  return '<svg viewBox="0 0 220 220" role="presentation" focusable="false">' +
-    '<defs><linearGradient id="rkGold" x1="0" y1="0" x2="1" y2="1">' +
-    '<stop offset="0" stop-color="#ffe6a6"/><stop offset="1" stop-color="#e0972c"/></linearGradient>' +
-    '<linearGradient id="rkThread" x1="0" y1="0" x2="1" y2="0">' +
-    '<stop offset="0" stop-color="#ff9db4"/><stop offset="1" stop-color="#f2647f"/></linearGradient></defs>' +
-    '<path d="M18 128c34-26 52 22 84 4" stroke="url(#rkThread)" stroke-width="11" fill="none" stroke-linecap="round"/>' +
-    '<path d="M202 128c-34-26-52 22-84 4" stroke="url(#rkThread)" stroke-width="11" fill="none" stroke-linecap="round"/>' +
-    '<circle cx="110" cy="104" r="46" fill="url(#rkGold)"/>' +
-    '<circle cx="110" cy="104" r="33" fill="#a51f3f" opacity=".92"/>' +
-    '<circle cx="110" cy="104" r="15" fill="url(#rkGold)"/>' +
-    '<g fill="#ffd98a"><circle cx="110" cy="47" r="7"/><circle cx="110" cy="161" r="7"/>' +
-    '<circle cx="53" cy="104" r="7"/><circle cx="167" cy="104" r="7"/></g></svg>';
-}
-
 // Mount the first live banner of each composed layout. A section stays hidden
 // when nothing is configured, so the homepage simply skips it.
 function renderComposedBanners() {
-  var all = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.banners) || [];
+  var all = ((window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.banners) || [])
+    .filter(function (b) { return b && (b.placement || "home") === "home"; });
   var mounts = [
     { layout: "promo", mount: "promoBannerMount", host: "promoBanner", render: promoBannerMarkup },
     { layout: "festive", mount: "festiveBannerMount", host: "festiveBanner", render: festiveBannerMarkup }
@@ -421,8 +422,11 @@ function withOfferCard(slide, hero) {
 // Banners configured in Admin -> Slideshow win over anything legacy. They are
 // already ordered and schedule-filtered by the API, so they are used as-is.
 function resolveBannerSlides() {
-  const banners = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.banners) || [];
-  if (!Array.isArray(banners) || !banners.length) return null;
+  const all = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.banners) || [];
+  // Banners carry a placement; anything aimed at another page (Crazy Deals)
+  // must not turn up in the homepage hero.
+  const banners = all.filter(b => b && (b.placement || "home") === "home");
+  if (!banners.length) return null;
   return banners
     .filter(b => b && b.image)
     .map(b => ({

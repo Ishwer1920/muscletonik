@@ -130,7 +130,23 @@ async function loadOrders() {
   }
 }
 
+// Step back to wherever the admin came from. history.back() alone is not
+// enough: opened in a fresh tab there is nothing behind this page, so the
+// button would do nothing at all. Fall back to the storefront home in that
+// case, and never step back to another site.
+function wireBackButton() {
+  const button = document.getElementById("pageBack");
+  if (!button) return;
+  button.addEventListener("click", () => {
+    const cameFromHere = document.referrer && document.referrer.indexOf(window.location.origin) === 0;
+    if (cameFromHere && window.history.length > 1) window.history.back();
+    else window.location.href = "/index.html";
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  // Wired before the catalogue await so the button works while orders load.
+  wireBackButton();
   await Promise.resolve(window.MT_CATALOG_READY);
   document.getElementById("refreshOrders").addEventListener("click", loadOrders);
   document.getElementById("providerFilter").addEventListener("change", loadOrders);

@@ -116,6 +116,15 @@ def update_brand(brand_id, patch=None, email=""):
             if percent < 0 or percent > 100:
                 raise ApiError("GST rate must be between 0 and 100.", 400)
             next_brand["gstRate"] = percent
+    # Brand-level inclusive/exclusive override, same inherit rules as the rate.
+    if "taxMode" in patch:
+        raw = str(patch.get("taxMode") or "").strip().lower()
+        if raw in ("inclusive", "exclusive"):
+            next_brand["taxMode"] = raw
+        elif raw == "":
+            next_brand.pop("taxMode", None)
+        else:
+            raise ApiError("Tax mode must be inclusive or exclusive.", 400)
     updated = list(brands)
     updated[index] = next_brand
     _write_list(BRANDS_KEY, updated, email)

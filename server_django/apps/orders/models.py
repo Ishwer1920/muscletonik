@@ -21,6 +21,32 @@ class OrderItem(me.EmbeddedDocument):
     quantity = me.IntField(required=True, min_value=1)
 
 
+class OrderFeedback(me.Document):
+    """How a customer rated the service after an order.
+
+    Separate from a product Review: this is about the shop (checkout, delivery,
+    support), not about anything in the box, so it has no productId and never
+    feeds a product's star rating. Written straight from the post-order pop-up.
+    """
+
+    orderNumber = me.StringField(required=True, unique=True)
+    user = me.ObjectIdField(required=True)
+    customerName = me.StringField(default="")
+    rating = me.IntField(required=True, min_value=1, max_value=5)
+    text = me.StringField(default="")
+
+    createdAt = me.DateTimeField()
+    updatedAt = me.DateTimeField()
+
+    meta = {
+        "collection": "order_feedback",
+        "indexes": ["orderNumber", "user", "-createdAt"],
+        "strict": False,
+    }
+
+    save = _timestamped_save
+
+
 class Order(me.Document):
     orderNumber = me.StringField(required=True, unique=True)
     user = me.ObjectIdField(required=True)

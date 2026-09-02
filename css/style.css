@@ -840,18 +840,26 @@ header.site.scrolled{
 /* Actions stay on ONE row. Wrapping pushed them past the card's bottom edge,
    which `contain:paint` then clipped — the buttons and text were being cut off
    mid-word. Buttons share the row; the icon actions keep a fixed footprint. */
-.prod-hover-actions{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;margin-top:auto;flex:0 0 auto;}
+/* Stacked rows, not one line. Six controls side by side crushed "Add to Cart"
+   and "Buy Now" down to a few pixels on a narrow card and pushed their labels
+   past the card edge. The secondary icons get their own row above the CTAs. */
+.prod-hover-actions{display:flex;flex-direction:column;gap:8px;margin-top:auto;flex:0 0 auto;}
+.prod-hover-icons{display:flex;align-items:center;justify-content:center;gap:8px;}
+.prod-hover-cta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
 .prod-hover-actions .btn{
-  flex:1 1 0;min-width:0;padding:10px 12px;font-size:12.5px;
+  width:100%;min-width:0;padding:10px 10px;font-size:12.5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;justify-content:center;
 }
-.prod-hover-actions .btn-icon{width:36px;height:36px;flex:0 0 36px;background:#fff;border:1px solid var(--border);}
+.prod-hover-actions .btn-icon{
+  width:36px;height:36px;flex:0 0 36px;padding:0;
+  background:#fff;border:1px solid var(--border);
+}
 .prod-hover-actions .btn-outline{border-color:var(--border);}
 .prod-hover-actions .btn-primary{box-shadow:none;}
-/* Narrower cards cannot hold four controls — drop the secondary icons rather
-   than shrinking everything into illegibility. */
-@media (max-width:1240px){
-  .prod-hover-actions .btn-icon{display:none;}
+.prod-hover-view{width:100%;}
+/* On a very narrow card the CTAs matter more than the icon row. */
+@media (max-width:420px){
+  .prod-hover-icons{display:none;}
 }
 @media (max-width:460px){.prod-grid{grid-template-columns:1fr;}}
 /* Marketplace: the 260px filter sidebar eats width, so one fewer column keeps
@@ -919,6 +927,24 @@ footer.site{background:var(--dark);color:#aaa;margin-top:30px;}
 .breadcrumb{font-size:13px;color:var(--text-light);}
 .breadcrumb a:hover{color:var(--primary);}
 .page-head h1{font-size:28px;margin-top:6px;}
+/* Back button sitting beside the page title. */
+.page-head-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:6px;}
+.page-head-row h1{margin-top:0;}
+.btn-back{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 16px 9px 13px;
+  border:1px solid var(--border);border-radius:999px;
+  background:#fff;color:var(--text);
+  font:inherit;font-size:13.5px;font-weight:700;
+  cursor:pointer;
+  transition:border-color .18s var(--ease), color .18s var(--ease), transform .18s var(--ease);
+}
+.btn-back:hover{border-color:var(--primary);color:var(--primary);transform:translateX(-2px);}
+.btn-back:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+@media (max-width:520px){
+  .page-head-row{gap:10px;}
+  .page-head-row h1{font-size:23px;}
+}
 
 /* ===========================================================
    PRODUCTS PAGE (filters + grid)
@@ -1058,7 +1084,12 @@ input[type=range]{width:100%;accent-color:var(--primary);}
    CART / WISHLIST
    =========================================================== */
 .cart-layout{display:grid;grid-template-columns:1fr 360px;gap:30px;align-items:start;}
+/* Same reason as above, for the grid tracks themselves. */
+.cart-layout > *{min-width:0;}
 .cart-item{display:grid;grid-template-columns:90px 1fr auto;gap:16px;align-items:center;padding:18px 0;border-bottom:1px solid var(--border);}
+.cart-item > *{min-width:0;}
+/* A long product name must wrap rather than widen the row. */
+.cart-item h4{overflow-wrap:anywhere;}
 .cart-item .thumb{width:90px;height:90px;border-radius:var(--radius-sm);background:var(--gray);}
 .cart-item h4{font-size:14.5px;}
 .cart-item .remove{color:var(--red);font-size:12.5px;font-weight:600;margin-top:6px;}
@@ -1090,10 +1121,20 @@ a.glass-card.hero-offer-card:hover{transform:translateY(-3px);box-shadow:0 18px 
   cursor:pointer;text-decoration:underline;
 }
 .coupon-remove:hover{opacity:.8;}
-.coupon-row input{flex:1;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13.5px;}
+/* min-width:0 matters: a flex item defaults to min-width:auto, and an input's
+   intrinsic width is ~20 characters, so without this the coupon field refuses
+   to shrink and pushes the whole summary box past a narrow screen. */
+.coupon-row input{flex:1 1 0;min-width:0;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13.5px;}
 .empty-state{text-align:center;padding:80px 20px;}
 .empty-state .icon{width:80px;height:80px;border-radius:50%;background:var(--gray);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
 @media (max-width:880px){.cart-layout{grid-template-columns:1fr;}}
+@media (max-width:420px){
+  /* Narrow phones: a smaller thumb leaves room for the name and price. */
+  .cart-item{grid-template-columns:64px 1fr;gap:12px;}
+  .cart-item .thumb{width:64px;height:64px;}
+  .cart-item > div:last-child{grid-column:2;text-align:left;}
+  .summary-box{padding:18px;}
+}
 
 /* ===========================================================
    FORMS — login/signup/checkout/contact
@@ -1805,6 +1846,403 @@ a.deal-spotlight:hover{transform:translateY(-4px);background:rgba(255,255,255,.1
 .deal-cta{margin-top:10px;justify-content:center;}
 
 .promo-sub{font-size:15px;font-weight:600;margin-bottom:6px;}
+/* ===========================================================
+   COLLECTION BANNERS
+   The rotating banner slot on a collection page (Admin -> Banners, with
+   "Shows on" set to that page). Any number of banners share the slot.
+   =========================================================== */
+.cd-banners{
+  position:relative;
+  margin-bottom:22px;
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+  background:var(--gray);
+}
+.cd-banner-track{
+  display:flex;
+  transition:transform .55s var(--ease);
+  will-change:transform;
+}
+.cd-banner-slide{
+  position:relative;
+  flex:0 0 100%;
+  display:block;
+  line-height:0;
+  /* A banner strip, not a hero: artwork is often a tall hero crop, and at the
+     content column's width that would push the deals off the screen. A fixed
+     ratio keeps every slide the same height however the images differ. */
+  aspect-ratio:21/8;
+}
+.cd-banner-slide img{
+  width:100%;
+  height:100%;
+  display:block;
+  /* Admin artwork is any shape; crop rather than distort. */
+  object-fit:cover;
+}
+.cd-banner-cap{
+  position:absolute;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;gap:2px;
+  padding:26px 20px 16px;
+  background:linear-gradient(to top,rgba(0,0,0,.7),transparent);
+  color:#fff;line-height:1.3;
+}
+.cd-banner-cap b{font-family:'Poppins',sans-serif;font-size:18px;}
+.cd-banner-cap span{font-size:13px;opacity:.9;}
+.cd-banner-dots{
+  position:absolute;left:0;right:0;bottom:10px;
+  display:flex;justify-content:center;gap:7px;
+}
+.cd-banner-dots button{
+  width:8px;height:8px;padding:0;
+  border:none;border-radius:999px;
+  background:rgba(255,255,255,.55);
+  cursor:pointer;transition:width .25s var(--ease),background .25s var(--ease);
+}
+.cd-banner-dots button.active{width:22px;background:var(--primary);}
+
+@media (max-width:640px){
+  /* Too letterboxed to read on a phone, so give it more height. */
+  .cd-banner-slide{aspect-ratio:16/9;}
+  .cd-banner-cap{padding:20px 14px 14px;}
+  .cd-banner-cap b{font-size:15px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .cd-banner-track{transition:none;}
+}
+
+/* ===========================================================
+   COMBO OFFERS
+   Bundle cards on the Crazy Deals collection, and the grouped bundle rows on
+   the cart page.
+   =========================================================== */
+.combo-rail{margin-bottom:26px;}
+.combo-rail-head h3{font-size:20px;margin-bottom:2px;}
+.combo-rail-head p{font-size:13px;color:var(--text-light);margin-bottom:14px;}
+.combo-rail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
+.combo-card{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 10px 30px -22px rgba(17,17,17,.4);
+}
+.combo-card h4{font-size:15px;line-height:1.35;}
+.combo-desc{font-size:12.5px;color:var(--text-light);line-height:1.5;}
+.combo-card-items{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.combo-card-item{display:flex;flex-direction:column;align-items:center;gap:4px;width:74px;}
+.combo-thumb{
+  width:64px;height:64px;border-radius:14px;background:var(--gray);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.combo-thumb img{max-width:100%;max-height:100%;object-fit:contain;padding:6px;}
+.combo-item-name{
+  font-size:10.5px;line-height:1.3;text-align:center;color:var(--text-light);
+  display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.combo-plus{font-weight:800;color:var(--primary);font-size:15px;}
+.combo-more{font-size:11px;font-weight:700;color:var(--text-light);align-self:center;}
+/* Artwork-led card: the admin's combo photo fills the top, with the bundle
+   price sitting on it the way promo tiles usually read. */
+.combo-art{
+  position:relative;margin:-16px -16px 4px;
+  border-radius:var(--radius) var(--radius) 0 0;overflow:hidden;
+  background:var(--gray);aspect-ratio:1/1;
+  display:flex;align-items:center;justify-content:center;
+}
+.combo-art img{width:100%;height:100%;object-fit:cover;display:block;}
+.combo-art-price{
+  position:absolute;left:12px;bottom:12px;
+  background:rgba(17,17,17,.86);color:#fff;
+  font-family:'Poppins',sans-serif;font-weight:800;font-size:17px;
+  padding:6px 12px;border-radius:999px;
+}
+.combo-card.has-art .combo-price-row b{font-size:18px;}
+.combo-price-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:auto;}
+.combo-price-row b{font-family:'Poppins',sans-serif;font-size:20px;}
+.combo-price-row s{font-size:13px;color:var(--text-light);}
+.combo-save-pill{
+  font-size:11px;font-weight:700;color:#0a8f4c;
+  background:rgba(10,143,76,.1);border-radius:999px;padding:3px 9px;
+}
+
+/* ---- cart page ---- */
+.combo-group{
+  border:1px solid rgba(255,122,0,.35);border-bottom:none;
+  border-radius:var(--radius) var(--radius) 0 0;
+  background:rgba(255,122,0,.05);padding:12px 14px;margin-top:14px;
+}
+.combo-group.is-broken{border-color:rgba(211,51,51,.35);background:rgba(211,51,51,.05);}
+.combo-head{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-start;}
+.combo-head b{display:block;font-size:14px;}
+.combo-save{display:block;font-size:12px;color:#0a8f4c;margin-top:2px;}
+.combo-warn{display:block;font-size:12px;color:var(--red,#d33);margin-top:2px;}
+/* Items belonging to a bundle sit visually inside it. */
+.cart-item.in-combo{
+  border-left:1px solid rgba(255,122,0,.35);
+  border-right:1px solid rgba(255,122,0,.35);
+  background:rgba(255,122,0,.02);
+}
+
+/* ===========================================================
+   RATINGS & REVIEWS
+   Product review tab, the star picker, and the post-order pop-up.
+   =========================================================== */
+.mt-stars-input{display:inline-flex;gap:4px;margin:6px 0 10px;}
+.mt-stars-input .mt-star{cursor:pointer;font-size:26px;line-height:1;color:#d8d8d8;transition:color .12s ease,transform .12s ease;}
+.mt-stars-input .mt-star.is-on{color:#ffb400;}
+.mt-stars-input .mt-star:hover{transform:scale(1.08);}
+/* The radio itself stays focusable for keyboard/screen-reader use. */
+.mt-stars-input input{position:absolute;opacity:0;width:1px;height:1px;}
+.mt-stars-input input:focus-visible + span{outline:2px solid var(--primary,#ff7a00);outline-offset:2px;border-radius:4px;}
+.mt-star-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+.mt-stars-read{color:#ffb400;letter-spacing:1px;}
+
+/* Inline rater under the product title. Sits on one line with the headline
+   stars above it, and wraps to its own line on a narrow screen. */
+.pd-rate{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;}
+.pd-rate-label{font-size:13px;font-weight:700;color:var(--text-light,#777);}
+.pd-rate .mt-stars-input{margin:0;}
+.pd-rate .mt-star{font-size:22px;}
+.pd-rate-note{font-size:12.5px;color:var(--text-light,#777);}
+.pd-rate-note.is-ok{color:#0a8f4c;}
+.pd-rate-note.is-err{color:var(--red,#d33);}
+.pd-rate-note a{color:var(--primary,#ff7a00);font-weight:600;text-decoration:underline;}
+
+.mt-rv-loading{color:var(--text-light,#777);font-size:14px;}
+.mt-rv-summary{display:flex;gap:28px;flex-wrap:wrap;align-items:center;padding-bottom:18px;border-bottom:1px solid var(--border,#eee);}
+.mt-rv-summary.is-empty{border-bottom:none;color:var(--text-light,#777);font-size:14px;}
+.mt-rv-score{display:flex;flex-direction:column;gap:2px;}
+.mt-rv-score b{font-family:'Poppins',sans-serif;font-size:36px;line-height:1;}
+.mt-rv-score span{font-size:12.5px;color:var(--text-light,#777);}
+.mt-rv-bars{flex:1;min-width:200px;display:grid;gap:5px;}
+.mt-rv-bar-row{display:grid;grid-template-columns:32px 1fr 26px;align-items:center;gap:8px;font-size:12px;color:var(--text-light,#777);}
+.mt-rv-bar{display:block;height:6px;border-radius:999px;background:rgba(0,0,0,.08);overflow:hidden;}
+.mt-rv-bar i{display:block;height:100%;background:#ffb400;border-radius:999px;}
+
+.mt-rv-list{display:grid;gap:16px;padding:18px 0;}
+.mt-rv-item{border-bottom:1px solid var(--border,#eee);padding-bottom:14px;}
+.mt-rv-item:last-child{border-bottom:none;padding-bottom:0;}
+.mt-rv-item-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px;}
+.mt-rv-verified{font-size:11px;font-weight:700;color:#0a8f4c;background:rgba(10,143,76,.1);border-radius:999px;padding:2px 8px;}
+.mt-rv-text{margin-top:6px;font-size:14px;line-height:1.6;}
+.mt-rv-reply{margin-top:6px;font-size:13px;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.04);}
+
+.mt-rv-form{margin-top:18px;padding-top:18px;border-top:1px solid var(--border,#eee);}
+.mt-rv-form h4{font-size:15px;margin-bottom:2px;}
+.mt-rv-form.is-signin{font-size:14px;color:var(--text-light,#777);}
+.mt-rv-pending{font-size:12.5px;color:#b06f00;background:rgba(255,180,0,.12);border-radius:8px;padding:6px 10px;margin:6px 0;}
+.mt-rv-textarea{width:100%;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:12px;font:inherit;font-size:14px;resize:vertical;background:#fff;color:inherit;}
+.mt-rv-form-foot{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap;}
+.mt-rv-msg{font-size:12.5px;color:var(--text-light,#777);}
+.mt-rv-msg.is-ok{color:#0a8f4c;}
+.mt-rv-msg.is-err{color:var(--red,#d33);}
+
+/* ---- post-order pop-up ---- */
+.mt-fb-back{
+  position:fixed;inset:0;z-index:1200;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  background:rgba(0,0,0,.55);
+  opacity:0;transition:opacity .25s ease;
+}
+.mt-fb-back.open{opacity:1;}
+.mt-fb-modal{
+  position:relative;width:min(460px,100%);max-height:88vh;overflow-y:auto;
+  background:var(--card,#fff);color:inherit;
+  border-radius:20px;padding:26px 24px 22px;
+  box-shadow:0 24px 60px rgba(0,0,0,.3);
+  transform:translateY(12px);transition:transform .25s ease;
+}
+.mt-fb-back.open .mt-fb-modal{transform:none;}
+.mt-fb-close{
+  position:absolute;top:12px;right:12px;
+  width:32px;height:32px;border-radius:50%;
+  border:none;background:rgba(0,0,0,.06);cursor:pointer;
+  font-size:14px;line-height:1;color:inherit;
+}
+.mt-fb-close:hover{background:rgba(0,0,0,.12);}
+.mt-fb-modal h3{font-size:20px;margin:0 30px 4px 0;}
+.mt-fb-sub{font-size:13.5px;color:var(--text-light,#777);margin-bottom:14px;}
+.mt-fb-block{margin-bottom:16px;}
+.mt-fb-block > label{display:block;font-weight:700;font-size:13px;margin-bottom:2px;}
+.mt-fb-product{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border,#eee);}
+.mt-fb-product:last-child{border-bottom:none;}
+.mt-fb-product > span{font-size:13.5px;flex:1;min-width:140px;}
+.mt-fb-product .mt-stars-input{margin:0;}
+.mt-fb-product .mt-star{font-size:21px;}
+.mt-fb-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+
+@media (max-width:480px){
+  .mt-fb-modal{padding:22px 18px 18px;}
+  .mt-rv-summary{gap:18px;}
+}
+
+/* ===========================================================
+   PRELOADER
+
+   Sits over the page until the catalogue has hydrated. The storefront pulls
+   the whole catalogue in one multi-megabyte request, so without this the
+   header renders instantly and every product grid below it stays blank for a
+   few seconds, which reads as a broken page rather than a loading one.
+
+   The bar shows real download progress (see readCatalogBody in data.js), and
+   fills like powder settling into a scoop rather than sweeping side to side.
+   =========================================================== */
+.mt-preload{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  background:
+    radial-gradient(120% 90% at 50% 8%, #232323 0%, #131313 48%, #0c0c0c 100%);
+  opacity:1;
+  transition:opacity .45s ease;
+}
+/* Shaded gym-kit flat-lay filling the whole panel: plates, dumbbells, a
+   kettlebell, a bottle and a rope, each lit from the top-left with its own
+   cast shadow. Decorative only. Held well down in brightness so it can never
+   compete with the wordmark or the bar. */
+.mt-preload-gym{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:.34;
+  pointer-events:none;
+}
+/* Darkens the middle of the panel so the wordmark and bar always sit on a
+   clean ground, whatever happens to fall behind them. */
+.mt-preload::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(closest-side at 50% 46%,
+      rgba(10,10,11,.94) 0%, rgba(10,10,11,.78) 42%, rgba(10,10,11,.28) 70%, transparent 100%),
+    linear-gradient(to bottom, rgba(10,10,11,.5), transparent 30%, transparent 70%, rgba(10,10,11,.55));
+}
+
+.mt-preload-inner{
+  position:relative;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:18px;
+  padding:0 20px;
+}
+.mt-preload-brand{
+  font-family:'Poppins',sans-serif;
+  font-weight:800;
+  font-size:clamp(22px,5vw,40px);
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:#fff;
+  white-space:nowrap;
+}
+.mt-preload-brand em{font-style:normal;color:#ff7a00;}
+
+.mt-preload-bar{
+  position:relative;
+  width:min(320px,66vw);
+  height:13px;
+  border-radius:999px;
+  background:rgba(255,255,255,.09);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.5);
+  overflow:hidden;
+}
+/* The fill: an orange body with a granular overlay so it reads as powder
+   rather than a flat progress bar. Width is set from JS. */
+.mt-preload-fill{
+  display:block;
+  width:0%;
+  height:100%;
+  border-radius:999px;
+  background:
+    /* A soft crest at the leading edge, so the powder looks like it is
+       heaping up rather than stopping at a hard line. */
+    linear-gradient(90deg, transparent calc(100% - 16px), rgba(255,255,255,.28) 100%),
+    radial-gradient(circle at 30% 40%, rgba(255,255,255,.5) 0 .5px, transparent .9px),
+    radial-gradient(circle at 70% 75%, rgba(255,255,255,.32) 0 .5px, transparent .9px),
+    radial-gradient(circle at 15% 80%, rgba(90,40,0,.3) 0 .5px, transparent .9px),
+    radial-gradient(circle at 88% 22%, rgba(90,40,0,.22) 0 .5px, transparent .9px),
+    linear-gradient(90deg,#d95c00,#ff7a00 52%,#ffa94d);
+  background-size:100% 100%, 4px 4px, 5px 5px, 6px 6px, 7px 7px, 100% 100%;
+  transition:width .3s cubic-bezier(.4,0,.2,1);
+  /* The grain drifts so the powder looks like it is still settling. */
+  animation:mtPowderDrift 1.6s linear infinite;
+}
+@keyframes mtPowderDrift{
+  from{background-position:0 0, 0 0, 0 0, 0 0, 0 0, 0 0;}
+  to{background-position:0 0, 4px 4px, -5px 5px, 6px -6px, -7px 7px, 0 0;}
+}
+
+.mt-preload-meta{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  font-size:12px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.mt-preload-pct{
+  font-family:'Poppins',sans-serif;
+  font-weight:800;
+  font-size:15px;
+  color:#ff7a00;
+  font-variant-numeric:tabular-nums;
+  min-width:44px;
+  text-align:right;
+}
+.mt-preload-hint{color:rgba(255,255,255,.42);}
+
+.mt-preload.is-done{opacity:0;pointer-events:none;}
+/* The page underneath must not scroll while the overlay is up. */
+body.mt-preloading{overflow:hidden;}
+
+@media (max-width:640px){
+  /* A tall, narrow panel slices a 16:9 scene down to a sliver - on a phone
+     nearly all the kit was cropped away. Showing it as a full-width band
+     along the bottom keeps the whole flat-lay visible and the centre clear. */
+  .mt-preload-gym{
+    inset:auto 0 0 0;
+    height:auto;
+    opacity:.3;
+  }
+  .mt-preload::after{
+    background:
+      radial-gradient(closest-side at 50% 42%,
+        rgba(10,10,11,.94) 0%, rgba(10,10,11,.7) 50%, rgba(10,10,11,.25) 80%, transparent 100%),
+      linear-gradient(to bottom, rgba(10,10,11,.45), transparent 35%, transparent 62%, rgba(10,10,11,.5));
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .mt-preload-fill{animation:none;transition:none;}
+  .mt-preload{transition:none;}
+}
+
+.summary-tax-note,.co-row-taxnote{
+  font-size:12px;
+  color:var(--text-light,#6b6b6b);
+  margin-top:6px;
+}
+.co-row-taxnote span:first-child{font-style:normal;}
+
+/* Festive logo placement - Admin -> Banners -> "Logo position". The panel is
+   a two-column grid by default (copy | logo); these swap, centre or drop that
+   second column. */
+.promo-banner.promo-logo-hidden{grid-template-columns:minmax(0,1fr);}
+.promo-banner.promo-logo-left{grid-template-columns:minmax(0,300px) minmax(0,1fr);}
+.promo-banner.promo-logo-left .promo-visual{order:1;}
+.promo-banner.promo-logo-left .promo-text{order:2;}
+.promo-banner.promo-logo-center{grid-template-columns:minmax(0,1fr);justify-items:center;text-align:center;}
+.promo-banner.promo-logo-center .promo-visual{order:1;}
+.promo-banner.promo-logo-center .promo-text{order:2;}
+.promo-banner.promo-logo-center .promo-actions{justify-content:center;}
+
 .promo-banner .promo-visual img{
   max-width:100%;height:auto;display:block;
   /* Admin artwork is arbitrary — never let it stretch. */

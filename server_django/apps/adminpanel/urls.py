@@ -1,7 +1,7 @@
 from django.urls import path
 
 from . import (
-    views_analytics, views_content, views_coupons, views_customers,
+    views_analytics, views_combos, views_content, views_coupons, views_customers,
     views_dashboard, views_inventory, views_products, views_reviews,
     views_banners, views_settings, views_taxonomy, views_uploads,
 )
@@ -18,6 +18,8 @@ urlpatterns = [
     path("products/<str:product_id>/status", views_products.set_product_status),
     path("products/<str:product_id>/tax", views_products.set_product_gst),
     path("products/<str:product_id>/merchandising", views_products.set_product_merchandising),
+    path("combos", views_combos.combos_collection),
+    path("combos/<str:combo_id>", views_combos.combo_detail),
 
     path("taxonomy", views_taxonomy.list_taxonomy),
     path("taxonomy/brands", views_taxonomy.create_brand),

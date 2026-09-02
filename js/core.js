@@ -3,6 +3,97 @@
    Include data.js BEFORE this file on every page.
    =========================================================== */
 
+/* ===========================================================
+   PRELOADER
+
+   The overlay is in the page markup so it paints immediately, and comes down
+   once the catalogue has hydrated (window.MT_CATALOG_READY, set in data.js).
+
+   The bar tracks the real download: data.js streams the catalogue response and
+   calls window.MT_LOAD_PROGRESS with the fraction received. That hook has to
+   exist before data.js starts fetching, which is why this block is defined
+   here rather than inside a DOMContentLoaded handler.
+
+   It is deliberately dismissed on a failed hydration too: falling back to the
+   seed catalogue is still a usable page, and a stuck splash screen is worse
+   than a thin one.
+   =========================================================== */
+(function () {
+  var MAX_WAIT_MS = 12000;  // never hold the page hostage to a slow API
+  var MIN_SHOW_MS = 400;    // avoid a one-frame flash on a warm cache
+  var startedAt = Date.now();
+  var dismissed = false;
+  // Kept as a float so sub-1% creep steps still accumulate; only the display
+  // is rounded. The bar never goes backwards.
+  var shown = 0;
+
+  var fill = document.getElementById("mtPreloadFill");
+  var pct = document.getElementById("mtPreloadPct");
+
+  function paint(fraction) {
+    var percent = Math.max(0, Math.min(1, Number(fraction) || 0)) * 100;
+    if (percent <= shown) return;
+    shown = percent;
+    var rounded = Math.round(percent);
+    if (fill) fill.style.width = rounded + "%";
+    if (pct) pct.textContent = rounded + "%";
+  }
+
+  // data.js calls this as the catalogue streams in.
+  window.MT_LOAD_PROGRESS = paint;
+
+  // A steadily easing creep, so the bar is always moving even when the
+  // download reports nothing useful. On a fast local connection the browser
+  // often hands over the whole body in one buffered chunk, which would
+  // otherwise leave the bar frozen until the very end; real progress simply
+  // overtakes the creep whenever it is ahead (paint never goes backwards).
+  // It eases toward 90% and stops there - the last stretch belongs to the
+  // parse, and finishing early would be a lie.
+  var CREEP_CEILING = 90;
+  var creep = setInterval(function () {
+    if (shown >= CREEP_CEILING) return;
+    // Bigger steps early, smaller as it approaches the ceiling.
+    var step = Math.max(0.4, (CREEP_CEILING - shown) / 14);
+    paint((shown + step) / 100);
+  }, 180);
+
+  function dismiss() {
+    if (dismissed) return;
+    dismissed = true;
+    clearInterval(creep);
+    paint(1);
+    var wait = Math.max(0, MIN_SHOW_MS - (Date.now() - startedAt));
+    setTimeout(function () {
+      var el = document.getElementById("mtPreload");
+      if (document.body) document.body.classList.remove("mt-preloading");
+      if (!el) return;
+      el.classList.add("is-done");
+      // Match the CSS fade, then take it out of the tree entirely so it can
+      // never trap a click.
+      setTimeout(function () {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 500);
+    }, wait);
+  }
+
+  // Page without the overlay markup: just make sure scrolling is not locked.
+  if (!document.getElementById("mtPreload")) {
+    clearInterval(creep);
+    if (document.body) document.body.classList.remove("mt-preloading");
+    return;
+  }
+
+  setTimeout(dismiss, MAX_WAIT_MS);
+  if (window.MT_CATALOG_READY && typeof window.MT_CATALOG_READY.then === "function") {
+    window.MT_CATALOG_READY.then(dismiss, dismiss);
+  } else {
+    // No catalogue on this page (or data.js changed shape): the DOM being
+    // ready is the best signal available.
+    if (document.readyState === "complete") dismiss();
+    else window.addEventListener("load", dismiss);
+  }
+})();
+
 const Store = {
   get(key, fallback) {
     try {
@@ -42,22 +133,50 @@ function setPreviewMode(active) {
 const Cart = {
   items() { return Store.get("mt_cart", []); },
   save(items) { Store.set("mt_cart", items); updateHeaderCounts(); },
-  add(id, qty) {
+  // A cart line is identified by product AND combo: the same product bought
+  // on its own and as part of a bundle are two separate lines, because only
+  // the tagged one is priced at the combo rate.
+  key(id, comboId) { return Number(id) + "|" + (comboId || ""); },
+  find(items, id, comboId) {
+    return items.find(i => this.key(i.id, i.comboId) === this.key(id, comboId));
+  },
+  add(id, qty, comboId) {
     qty = qty || 1;
     const items = this.items();
-    const found = items.find(i => i.id === Number(id));
+    const found = this.find(items, id, comboId);
     if (found) found.qty += qty;
-    else items.push({ id: Number(id), qty });
+    else items.push(comboId ? { id: Number(id), qty, comboId: comboId } : { id: Number(id), qty });
     this.save(items);
     showToast("Added to cart");
   },
-  remove(id) {
-    this.save(this.items().filter(i => i.id !== Number(id)));
+  // Adds every product in a bundle in one go, each tagged with the combo so
+  // the server prices the set at its flat price.
+  addCombo(combo) {
+    if (!combo || !Array.isArray(combo.items) || !combo.items.length) return;
+    const items = this.items();
+    combo.items.forEach(entry => {
+      const qty = Math.max(1, Number(entry.quantity) || 1);
+      const found = this.find(items, entry.id, combo.id);
+      if (found) found.qty += qty;
+      else items.push({ id: Number(entry.id), qty: qty, comboId: combo.id });
+    });
+    this.save(items);
+    showToast("Combo added to cart");
+  },
+  remove(id, comboId) {
+    const key = this.key(id, comboId);
+    this.save(this.items().filter(i => this.key(i.id, i.comboId) !== key));
     showToast("Removed from cart");
   },
-  setQty(id, qty) {
+  // Drop a whole bundle at once, from the cart's combo header.
+  removeCombo(comboId) {
+    if (!comboId) return;
+    this.save(this.items().filter(i => (i.comboId || "") !== comboId));
+    showToast("Combo removed");
+  },
+  setQty(id, qty, comboId) {
     const items = this.items();
-    const found = items.find(i => i.id === Number(id));
+    const found = this.find(items, id, comboId);
     if (found) {
       found.qty = Math.max(1, qty);
       this.save(items);
@@ -67,11 +186,28 @@ const Cart = {
     return this.items().reduce((sum, item) => sum + item.qty, 0);
   },
   clear() { this.save([]); },
-  total() {
-    return this.items().reduce((sum, item) => {
+  // Cart lines with combo pricing already applied, in the same shape the cart
+  // page and the tax helper want. A line that belongs to a bundle which no
+  // longer holds comes back at its normal price with comboBroken set.
+  pricedLines() {
+    const lines = this.items().map(item => {
       const product = getProductById(item.id);
-      return product ? sum + product.price * item.qty : sum;
-    }, 0);
+      if (!product) return null;
+      return {
+        id: Number(item.id),
+        qty: item.qty,
+        comboId: item.comboId || null,
+        product: product,
+        lineTotal: Math.round(product.price * item.qty),
+        combo: null,
+        comboBroken: false
+      };
+    }).filter(Boolean);
+    if (typeof mtApplyComboPricing === "function") mtApplyComboPricing(lines);
+    return lines;
+  },
+  total() {
+    return this.pricedLines().reduce((sum, line) => sum + line.lineTotal, 0);
   }
 };
 
@@ -433,13 +569,20 @@ function renderProductCard(p) {
             '<div class="prod-hover-spec">' + escapeHtml(flavorLine || (p.ingredients || "").slice(0, 90)) + "</div>" +
           "</div>" +
         "</div>" +
+        // Three rows rather than one: six controls on a single nowrap row
+        // squeezed the two CTAs down to a few pixels on a narrow card and
+        // spilled their labels outside it.
         '<div class="prod-hover-actions">' +
-          '<button type="button" class="btn btn-dark btn-sm" onclick="event.preventDefault();event.stopPropagation();Cart.add(' + p.id + ');">Add to Cart</button>' +
-          '<button type="button" class="btn btn-primary btn-sm" onclick="event.preventDefault();event.stopPropagation();Cart.add(' + p.id + ');window.location.href=\'cart.html\';">Buy Now</button>' +
-          '<button type="button" class="btn-icon ' + (wished ? "active" : "") + '" data-wish="' + p.id + '" onclick="event.preventDefault();event.stopPropagation();Wishlist.toggle(' + p.id + ')">' + icon("heart", 17) + "</button>" +
-          '<button type="button" class="btn-icon' + (Compare.has(p.id) ? " active" : "") + '" data-compare="' + p.id + '" onclick="event.preventDefault();event.stopPropagation();Compare.toggle(' + p.id + ')">⇄</button>' +
-          '<button type="button" class="btn-icon" onclick="event.preventDefault();event.stopPropagation();shareProduct(PRODUCTS.find(function(item){return item.id===' + p.id + ';}))">' + icon("bolt", 17) + "</button>" +
-          '<a class="btn btn-outline btn-sm" href="product.html?id=' + p.id + '">View Details</a>' +
+          '<div class="prod-hover-icons">' +
+            '<button type="button" class="btn-icon ' + (wished ? "active" : "") + '" data-wish="' + p.id + '" onclick="event.preventDefault();event.stopPropagation();Wishlist.toggle(' + p.id + ')" aria-label="Add to wishlist">' + icon("heart", 17) + "</button>" +
+            '<button type="button" class="btn-icon' + (Compare.has(p.id) ? " active" : "") + '" data-compare="' + p.id + '" onclick="event.preventDefault();event.stopPropagation();Compare.toggle(' + p.id + ')" aria-label="Compare">⇄</button>' +
+            '<button type="button" class="btn-icon" onclick="event.preventDefault();event.stopPropagation();shareProduct(PRODUCTS.find(function(item){return item.id===' + p.id + ';}))" aria-label="Share">' + icon("bolt", 17) + "</button>" +
+          "</div>" +
+          '<div class="prod-hover-cta">' +
+            '<button type="button" class="btn btn-dark btn-sm" onclick="event.preventDefault();event.stopPropagation();Cart.add(' + p.id + ');">Add to Cart</button>' +
+            '<button type="button" class="btn btn-primary btn-sm" onclick="event.preventDefault();event.stopPropagation();Cart.add(' + p.id + ');window.location.href=\'cart.html\';">Buy Now</button>' +
+          "</div>" +
+          '<a class="btn btn-outline btn-sm prod-hover-view" href="product.html?id=' + p.id + '">View Details</a>' +
         "</div>" +
       "</div>" +
     "</div>"

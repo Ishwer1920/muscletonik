@@ -16,6 +16,13 @@ document.addEventListener("DOMContentLoaded", function () {
     if (title) title.textContent = "Order placed";
     if (sub) sub.textContent = "Your order is confirmed. Please keep the amount ready — you'll pay in cash on delivery.";
   }
+  // Ask how the order went. The pop-up checks with the API first, so it is
+  // never shown for an order that has already been rated, and remembers a
+  // dismissal locally so closing it sticks.
+  if (order && window.MTReviews) {
+    MTReviews.openOrderPrompt({ orderNumber: order });
+  }
+
   const iconEl = document.getElementById("successIcon");
   if (iconEl) {
     iconEl.innerHTML = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';

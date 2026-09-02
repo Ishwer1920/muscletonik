@@ -345,10 +345,13 @@
         <div style="position:relative;">${prod}</div></div>`;
     }
 
-    const logo = v.logo
+    const logoPos = ["left", "center", "right", "hidden"].includes(v.logoPosition) ? v.logoPosition : "right";
+    const logo = v.logo && logoPos !== "hidden"
       ? `<img src="${esc(v.logo)}" style="width:${Number(v.logoSize) || 120}px;max-width:40%;height:auto;" onerror="this.style.display='none'">`
       : "";
-    return `<div style="position:relative;border-radius:12px;overflow:hidden;${bg}padding:20px;display:flex;gap:16px;align-items:center;color:#fff;">
+    // Mirrors .promo-logo-* in style.css so the preview matches the site.
+    const flow = logoPos === "center" ? "column-reverse" : logoPos === "left" ? "row-reverse" : "row";
+    return `<div style="position:relative;border-radius:12px;overflow:hidden;${bg}padding:20px;display:flex;flex-direction:${flow};gap:16px;align-items:center;${logoPos === "center" ? "text-align:center;" : ""}color:#fff;">
       ${scrim}
       <div style="position:relative;flex:1;min-width:0;">
         ${v.offerText ? `<span style="display:inline-block;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;">${esc(v.offerText)}</span>` : ""}
@@ -391,6 +394,15 @@
           { id: "festive", label: "Festive panel" }
         ])}
       </div>
+      <div class="grid-2">
+        ${select("Shows on", "placement", b.placement || "home", [
+          { id: "home", label: "Home page" },
+          { id: "crazy-deals", label: "Crazy Deals page" }
+        ])}
+      </div>
+      <p style="font-size:12px;color:var(--a-muted);margin:-4px 0 10px;">
+        Banners on the same page rotate in one slider, in display order.
+      </p>
 
       <b style="font-size:12.5px;">Background</b>
       ${imageRow("Desktop image", "image", b.image, isSlide ? "(required for hero slides)" : "(optional)")}
@@ -414,6 +426,17 @@
         ${imageRow("Secondary image", "mainImage", b.mainImage)}
         <div class="grid-2">
           ${num("Logo width (px)", "logoSize", b.logoSize || 120, 24, 480, 4)}
+          ${select("Logo position", "logoPosition", b.logoPosition || "right", [
+            { id: "right", label: "Right of the text" },
+            { id: "left", label: "Left of the text" },
+            { id: "center", label: "Centred above the text" },
+            { id: "hidden", label: "Hidden (no logo)" }
+          ])}
+        </div>
+        <p style="font-size:12px;color:var(--a-muted);margin:-4px 0 10px;">
+          "Hidden" keeps the artwork on the banner but leaves it off the site.
+        </p>
+        <div class="grid-2">
           ${num("Feature product (catalog id)", "productId", b.productId == null ? "" : b.productId, 0, 999999, 1)}
         </div>
         <p style="font-size:12px;color:var(--a-muted);margin:-4px 0 10px;">

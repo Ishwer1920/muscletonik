@@ -20,7 +20,8 @@ EDITABLE = [
     "protein", "calories", "servings", "flavor", "ingredients", "mrp", "sellingPrice",
     "stock", "rating", "reviewCount", "featured", "trending", "deal", "bestSeller",
     "newArrival", "weight", "status", "seoTitle", "seoDescription", "images", "galleryImages",
-    "gstRate", "crazyDeal", "crazyDealPrice", "nearExpiry", "expiryDate", "arrivalDate",
+    "gstRate", "taxMode", "crazyDeal", "crazyDealPrice", "nearExpiry", "expiryDate",
+    "arrivalDate",
 ]
 
 # Mongoose auto-casts numeric/boolean strings from multipart form bodies;
@@ -49,12 +50,20 @@ def _parse_date(value):
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
+# Fields where an empty string from the product editor means "clear this",
+# not "leave it alone". Without this, a merchandising date or a crazy-deal
+# price could be set from the admin but never unset again.
+CLEARABLE = {"gstRate", "taxMode", "expiryDate", "arrivalDate", "crazyDealPrice"}
+
+
 def _cast_field(key, value):
     if key in DATE_FIELDS:
         return _parse_date(value)
-    if key == "gstRate" and (value is None or str(value).strip() == ""):
+    if key in ("gstRate", "taxMode") and (value is None or str(value).strip() == ""):
         # Blank means "no override" — inherit the store default.
-        return None
+        return None if key == "gstRate" else ""
+    if key == "crazyDealPrice" and (value is None or str(value).strip() == ""):
+        return 0
     if key in FLOAT_FIELDS:
         return float(value)
     if key in INT_FIELDS:
@@ -107,8 +116,12 @@ def normalize_media(data, files):
 
 def apply_editable(doc, data):
     for key in EDITABLE:
-        if key in data and data[key] is not None and data[key] != "":
-            setattr(doc, key, _cast_field(key, data[key]))
+        if key not in data:
+            continue
+        blank = data[key] is None or data[key] == ""
+        if blank and key not in CLEARABLE:
+            continue
+        setattr(doc, key, _cast_field(key, data[key]))
     if isinstance(data.get("images"), list):
         doc.images = data["images"]
     if isinstance(data.get("galleryImages"), list):
@@ -129,7 +142,8 @@ def admin_view(p):
         "featured": p.featured, "trending": p.trending, "deal": p.deal,
         "bestSeller": p.bestSeller, "newArrival": p.newArrival, "weight": p.weight,
         "status": p.status, "seoTitle": p.seoTitle, "seoDescription": p.seoDescription,
-        "gstRate": p.gstRate, "crazyDeal": p.crazyDeal, "crazyDealPrice": p.crazyDealPrice,
+        "gstRate": p.gstRate, "taxMode": p.taxMode or "",
+        "crazyDeal": p.crazyDeal, "crazyDealPrice": p.crazyDealPrice,
         "nearExpiry": p.nearExpiry, "newArrival": p.newArrival,
         "expiryDate": p.expiryDate.isoformat() if p.expiryDate else None,
         "arrivalDate": p.arrivalDate.isoformat() if p.arrivalDate else None,
@@ -347,9 +361,27 @@ def set_product_gst(request, product_id):
 
     Its own endpoint rather than a PUT through update_product() because that
     path validates the whole product body; this only ever touches gstRate.
-    An empty string / null clears the override so the product falls back to
-    the store default.
+    An empty string / null clears either override so the product falls back to
+    its brand, then the store default. Both are optional: a request carrying
+    only one of them leaves the other untouched.
     """
+    doc = Product.objects(id=product_id).first()
+    if not doc:
+        return Response({"message": "Product not found"}, status=404)
+
+    if "taxMode" in request.data:
+        mode = str(request.data.get("taxMode") or "").strip().lower()
+        if mode not in ("", "inclusive", "exclusive"):
+            return Response({"message": "Validation failed", "errors": [
+                {"msg": "Tax mode must be inclusive or exclusive.", "param": "taxMode"}
+            ]}, status=400)
+        before_mode = doc.taxMode
+        doc.taxMode = mode
+        if "gstRate" not in request.data:
+            doc.save()
+            write_audit(request, "product.taxMode", doc.sku, {"before": before_mode, "after": mode})
+            return Response({"message": "Tax mode updated.", "product": admin_view(doc)})
+
     raw = request.data.get("gstRate")
     if raw is None or str(raw).strip() == "":
         rate = None
@@ -363,9 +395,6 @@ def set_product_gst(request, product_id):
                 {"msg": "GST rate must be between 0 and 100.", "param": "gstRate"}
             ]}, status=400)
 
-    doc = Product.objects(id=product_id).first()
-    if not doc:
-        return Response({"message": "Product not found"}, status=404)
     before = doc.gstRate
     doc.gstRate = rate
     doc.save()

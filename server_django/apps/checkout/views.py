@@ -144,7 +144,9 @@ def validate_coupon(request):
     shipping = pricing.shipping_charge(after_coupon) if has_physical else 0
     if result["freeShipping"]:
         shipping = 0
-    gst = pricing.gst_for_line_items(line_items, result["amount"])
+    # Only the exclusive share is charged on top; inclusive tax already sits
+    # inside the line prices.
+    gst = pricing.gst_breakdown_for_line_items(line_items, result["amount"])
 
     detail = pricing.coupon_public_view(result.get("coupon"))
     return Response({
@@ -159,8 +161,11 @@ def validate_coupon(request):
             "subtotal": subtotal,
             "discount": result["amount"],
             "shipping": shipping,
-            "gst": gst,
-            "total": after_coupon + shipping + gst,
+            "gst": gst["total"],
+            "gstAdded": gst["added"],
+            "gstIncluded": gst["included"],
+            "taxInclusive": gst["included"] > 0 and gst["added"] == 0,
+            "total": after_coupon + shipping + gst["added"],
         },
     })
 

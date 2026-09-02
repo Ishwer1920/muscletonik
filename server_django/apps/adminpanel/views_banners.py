@@ -67,6 +67,7 @@ def banner_view(b):
     return {
         "id": str(b.id),
         "layout": b.layout or "slide",
+        "placement": b.placement or "home",
         "name": b.name,
         "heading": b.heading,
         "subheading": b.subheading,
@@ -79,6 +80,7 @@ def banner_view(b):
         "productImage": b.productImage,
         "logo": b.logo,
         "logoSize": b.logoSize,
+        "logoPosition": b.logoPosition or "right",
         "productId": b.productId,
         "buttonActionType": b.buttonActionType,
         "buttonTarget": b.buttonTarget,
@@ -161,12 +163,20 @@ def _apply(doc, data):
     if "layout" in data and data["layout"] in ("slide", "promo", "festive"):
         doc.layout = data["layout"]
 
+    if "placement" in data:
+        value = str(data.get("placement") or "home").strip().lower()
+        doc.placement = value if value in ("home", "crazy-deals") else "home"
+
     for field, lo, hi, default in (("overlay", 0, 100, 0), ("logoSize", 24, 480, 120)):
         if field in data:
             try:
                 setattr(doc, field, max(lo, min(hi, int(float(data.get(field) or default)))))
             except (TypeError, ValueError):
                 setattr(doc, field, default)
+
+    if "logoPosition" in data:
+        value = str(data.get("logoPosition") or "right").strip().lower()
+        doc.logoPosition = value if value in ("left", "center", "right", "hidden") else "right"
 
     if "productId" in data:
         raw = data.get("productId")

@@ -17,7 +17,8 @@
   const content = document.getElementById("aContent");
   content.innerHTML = `
     <h1 class="a-page-title">Merchandising</h1>
-    <p class="a-page-sub">Choose which products appear under Crazy Deals, New Arrivals and Near Expiry.</p>
+    <p class="a-page-sub">Choose which products appear under Crazy Deals, New Arrivals and Near Expiry.
+      Combo offers live on their own <a href="/admin/crazy-deals.html">Crazy Deals</a> page.</p>
     <div class="a-card">
       <div class="a-card-head" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <h3 style="margin:0;">Products</h3>

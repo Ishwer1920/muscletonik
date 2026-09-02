@@ -84,6 +84,7 @@ def map_product(p, threshold_days=None):
         # None means "no override" — the storefront falls back to the store
         # default in taxSettings.gstRate.
         "gstRate": p.gstRate,
+        "taxMode": p.taxMode or "",
         # --- merchandising -------------------------------------------------
         "newArrival": bool(p.newArrival),
         "crazyDeal": bool(p.crazyDeal),
@@ -196,6 +197,7 @@ def live_banners():
         out.append({
             "id": str(b.id),
             "layout": b.layout or "slide",
+            "placement": b.placement or "home",
             "image": b.image or "",
             "imageMobile": b.imageMobile or "",
             "alt": b.alt or b.heading or b.title or "Promotional banner",
@@ -213,6 +215,7 @@ def live_banners():
             "productImage": b.productImage or "",
             "logo": b.logo or "",
             "logoSize": b.logoSize or 120,
+            "logoPosition": b.logoPosition or "right",
             "product": actions.product_snapshot(b.productId),
             # --- CTAs ---
             "ctaText": b.ctaText or "",
@@ -276,11 +279,74 @@ def get_catalog():
         # rate the server charges. Configured in Admin -> Tax.
         # Brands already ship their own gstRate inside the brands list above,
         # so the storefront can resolve product -> brand -> global itself.
+        # Live combo offers for the Crazy Deals collection.
+        "combos": live_combos(),
         "taxSettings": {
             "gstRate": pricing.default_gst_rate(),
+            "taxMode": pricing.default_tax_mode(),
             "gstEnabled": pricing.gst_enabled(),
         },
     }
+
+
+def live_combos():
+    """Active combos, priced against the live catalogue.
+
+    The normal total is computed here rather than stored, so a combo's
+    advertised saving can never drift out of step with the product prices it
+    is built from. A combo whose products have gone missing is dropped rather
+    than shown with a hole in it.
+    """
+    from .models import Combo
+
+    combos = list(Combo.objects(isActive=True).order_by("displayOrder", "-createdAt"))
+    if not combos:
+        return []
+
+    wanted = set()
+    for combo in combos:
+        for item in combo.items or []:
+            wanted.add(int(item.catalogId))
+    products = {
+        int(p.catalogId): p
+        for p in Product.objects(catalogId__in=list(wanted), status="active", hidden__ne=True)
+    }
+
+    out = []
+    for combo in combos:
+        items = []
+        normal_total = 0
+        complete = bool(combo.items)
+        for item in combo.items or []:
+            product = products.get(int(item.catalogId))
+            if not product:
+                complete = False
+                break
+            quantity = int(item.quantity or 1)
+            price = pricing.round_money(pricing.effective_price(product))
+            normal_total += price * quantity
+            items.append({
+                "id": int(product.catalogId),
+                "name": product.name,
+                "quantity": quantity,
+                "price": price,
+                "image": (list(product.images or []) or [""])[0],
+            })
+        combo_price = pricing.round_money(combo.comboPrice)
+        # Only offer bundles that are actually cheaper than buying the parts.
+        if not complete or not items or combo_price <= 0 or combo_price >= normal_total:
+            continue
+        out.append({
+            "id": str(combo.id),
+            "name": combo.name,
+            "description": combo.description,
+            "image": combo.image,
+            "items": items,
+            "comboPrice": combo_price,
+            "normalTotal": normal_total,
+            "saving": normal_total - combo_price,
+        })
+    return out
 
 
 def _sort_products(items, sort):

@@ -25,35 +25,70 @@ function renderCart() {
   emptyState.style.display = "none";
   summaryWrap.style.display = "block";
 
-  root.innerHTML = items.map(i => {
-    const p = getProductById(i.id);
-    if (!p) return "";
-    return `<div class="cart-item">
+  // Lines come back with combo pricing already worked out, so what the cart
+  // shows is what checkout will charge.
+  const lines = Cart.pricedLines();
+  const rendered = [];
+  const doneCombos = {};
+
+  lines.forEach(line => {
+    const p = line.product;
+    const comboId = line.comboId;
+    // A bundle is drawn once, as a header above its own items.
+    if (comboId && !doneCombos[comboId]) {
+      doneCombos[comboId] = true;
+      const group = lines.filter(l => l.comboId === comboId);
+      const combo = line.combo || getComboById(comboId);
+      const normal = group.reduce((sum, l) => sum + Math.round(l.product.price * l.qty), 0);
+      const broken = !line.combo;
+      rendered.push(`<div class="combo-group${broken ? " is-broken" : ""}">
+        <div class="combo-head">
+          <div>
+            <b>${escapeHtml((combo && combo.name) || "Combo")}</b>
+            ${broken
+              ? '<span class="combo-warn">Combo price no longer applies - items are at their normal price</span>'
+              : `<span class="combo-save">Combo price ${formatINR(line.combo.comboPrice)} &middot; you save ${formatINR(line.combo.saving)}</span>`}
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:800;font-family:'Poppins',sans-serif;">${formatINR(broken ? normal : line.combo.comboPrice)}</div>
+            ${broken ? "" : `<div style="font-size:12px;color:var(--text-light);text-decoration:line-through;">${formatINR(normal)}</div>`}
+            <div class="remove" onclick="Cart.removeCombo('${escapeHtml(comboId)}');renderCart();">Remove combo</div>
+          </div>
+        </div>
+      </div>`);
+    }
+
+    const comboArg = comboId ? `,'${escapeHtml(comboId)}'` : "";
+    rendered.push(`<div class="cart-item${comboId ? " in-combo" : ""}">
       <div class="thumb" style="background:${p.color}18;display:flex;align-items:center;justify-content:center;">${productImage(p)}</div>
       <div>
         <h4>${p.name}</h4>
         <span style="font-size:12px;color:var(--text-light);">${getBrandById(p.brand).name}</span>
         <div class="qty-box" style="margin-top:10px;width:fit-content;">
-          <button onclick="updateCartQty(${p.id},-1)">-</button>
-          <span>${i.qty}</span>
-          <button onclick="updateCartQty(${p.id},1)">+</button>
+          <button onclick="updateCartQty(${p.id},-1${comboArg})">-</button>
+          <span>${line.qty}</span>
+          <button onclick="updateCartQty(${p.id},1${comboArg})">+</button>
         </div>
-        <div class="remove" onclick="Cart.remove(${p.id});renderCart();">Remove</div>
+        <div class="remove" onclick="Cart.remove(${p.id}${comboArg});renderCart();">Remove</div>
       </div>
       <div style="text-align:right;">
-        <div style="font-weight:800;font-family:'Poppins',sans-serif;">${formatINR(p.price * i.qty)}</div>
-        <div style="font-size:12px;color:var(--text-light);text-decoration:line-through;">${formatINR(p.oldPrice * i.qty)}</div>
+        <div style="font-weight:800;font-family:'Poppins',sans-serif;">${formatINR(line.lineTotal)}</div>
+        ${line.combo
+          ? '<div style="font-size:11px;color:var(--text-light);">part of combo</div>'
+          : `<div style="font-size:12px;color:var(--text-light);text-decoration:line-through;">${formatINR(p.oldPrice * line.qty)}</div>`}
       </div>
-    </div>`;
-  }).join("");
+    </div>`);
+  });
+
+  root.innerHTML = rendered.join("");
 
   renderSummary();
 }
 
-function updateCartQty(id, delta) {
+function updateCartQty(id, delta, comboId) {
   const items = Cart.items();
-  const found = items.find(i => i.id === id);
-  if (found) Cart.setQty(id, found.qty + delta <= 0 ? 1 : found.qty + delta);
+  const found = Cart.find(items, id, comboId);
+  if (found) Cart.setQty(id, found.qty + delta <= 0 ? 1 : found.qty + delta, comboId);
   renderCart();
 }
 
@@ -63,19 +98,35 @@ function renderSummary() {
   const afterCoupon = Math.max(0, subtotal - couponDiscount);
   // Tax each line at its own product's rate (Admin -> Tax & GST); the label
   // moves with it so the customer never sees "GST (5%)" beside an 18% charge.
-  const taxLines = Cart.items().map(item => {
-    const product = getProductById(item.id);
-    return product ? { product, lineTotal: product.price * item.qty } : null;
-  }).filter(Boolean);
-  const gst = MT_TAX.forLines(taxLines, couponDiscount);
+  const taxLines = Cart.pricedLines().map(line => ({
+    product: line.product,
+    lineTotal: line.lineTotal
+  }));
+  const gst = MT_TAX.breakdown(taxLines, couponDiscount);
   const gstLabel = document.getElementById("sumGstLabel");
   if (gstLabel) gstLabel.textContent = MT_TAX.label(taxLines);
   let shipping = afterCoupon > 599 || afterCoupon === 0 ? 0 : 79;
   if (appliedCoupon && appliedCoupon.freeShipping) shipping = 0;
-  const total = afterCoupon + gst + shipping;
+  // Inclusive GST sits inside the prices already, so only the exclusive share
+  // is added on top - matching pricing.gst_breakdown_for_line_items().
+  const total = afterCoupon + gst.added + shipping;
   document.getElementById("sumSubtotal").textContent = formatINR(subtotal);
   document.getElementById("sumDiscount").textContent = "- " + formatINR(couponDiscount);
-  document.getElementById("sumGst").textContent = formatINR(gst);
+  document.getElementById("sumGst").textContent = formatINR(gst.added);
+  // A fully tax-inclusive cart has nothing to add, so the GST row would just
+  // read Rs 0 - drop it and say so under the total instead.
+  const fullyInclusive = gst.added === 0 && gst.included > 0;
+  const gstRow = document.getElementById("sumGstRow");
+  if (gstRow) gstRow.style.display = fullyInclusive ? "none" : "";
+  const taxNote = document.getElementById("sumTaxNote");
+  if (taxNote) {
+    taxNote.textContent = fullyInclusive
+      ? "Inclusive of all taxes"
+      : gst.included > 0
+        ? "Includes " + formatINR(gst.included) + " GST already in the item prices"
+        : "";
+    taxNote.hidden = !taxNote.textContent;
+  }
   document.getElementById("sumShipping").textContent = shipping === 0 ? "Free" : formatINR(shipping);
   document.getElementById("sumTotal").textContent = formatINR(total);
   renderCouponNote();

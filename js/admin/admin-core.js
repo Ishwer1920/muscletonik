@@ -60,7 +60,13 @@ const AdminShell = (() => {
       { key: "products", label: "Products", href: "/admin/products.html", icon: "products", built: true },
       { key: "inventory", label: "Inventory", href: "/admin/inventory.html", icon: "inventory", built: true },
       // Crazy Deals / New Arrivals / Near Expiry flags for the storefront.
-      { key: "merchandising", label: "Merchandising", href: "/admin/merchandising.html", icon: "products", built: true },
+      // Both are gated on "products" - the permission their endpoints actually
+      // require. Without an explicit perm the filter falls back to the key,
+      // and "merchandising"/"crazy-deals" are not permissions, so the links
+      // were silently dropped from the sidebar for every role.
+      { key: "merchandising", perm: "products", label: "Merchandising", href: "/admin/merchandising.html", icon: "products", built: true },
+      // Combo offers: 2-100 products bundled at one flat price.
+      { key: "crazy-deals", perm: "products", label: "Crazy Deals", href: "/admin/crazy-deals.html", icon: "coupons", built: true },
       { key: "coupons", label: "Coupons", href: "/admin/coupons.html", icon: "coupons", built: true },
       { key: "customers", label: "Customers", href: "/admin/customers.html", icon: "customers", built: true }
     ]},

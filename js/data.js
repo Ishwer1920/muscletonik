@@ -121,6 +121,7 @@ let ALL_PRODUCTS = [];
 // The 5 here is only the pre-API fallback: the server always re-computes the
 // real tax at checkout, so this drives display and estimates only.
 let TAX_SETTINGS = { gstRate: 5 };
+let COMBOS = [];
 
 // Slideshow banners from the Banner collection (Admin -> Slideshow). Empty
 // means "none configured" and the hero falls back to its legacy slides.
@@ -190,12 +191,63 @@ function mtRefreshSession() {
   return mtRefreshInFlight;
 }
 
+// Read the catalogue body, reporting download progress to the preloader as it
+// streams in. The payload is a single multi-megabyte response, so the bar can
+// show real progress rather than a guess.
+//
+// The bytes are decoded incrementally instead of being buffered into one big
+// array and decoded at the end: that would mean holding the whole payload
+// twice over before JSON.parse even starts, which is a real cost on a phone.
+//
+// Falls back to a plain .json() read whenever streaming would not help or
+// could not be trusted: no progress hook, no stream, a small payload, or a
+// compressed response (Content-Length is then the compressed size, so the
+// percentage would race ahead of the real download).
+async function readCatalogBody(response) {
+  const report = typeof window !== "undefined" && typeof window.MT_LOAD_PROGRESS === "function"
+    ? window.MT_LOAD_PROGRESS
+    : null;
+  const total = Number(response.headers.get("Content-Length")) || 0;
+  const compressed = /gzip|br|deflate/i.test(response.headers.get("Content-Encoding") || "");
+  const worthStreaming = total > 512 * 1024;
+
+  if (!report || !total || compressed || !worthStreaming ||
+      !response.body || typeof response.body.getReader !== "function" ||
+      typeof TextDecoder === "undefined") {
+    try { return await response.json(); } catch (err) { return null; }
+  }
+
+  try {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let text = "";
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.length;
+      text += decoder.decode(value, { stream: true });
+      // Hold just short of full until the JSON has actually parsed.
+      report(Math.min(0.98, received / total));
+    }
+    text += decoder.decode();
+    const parsed = JSON.parse(text);
+    report(1);
+    return parsed;
+  } catch (err) {
+    // The body is already consumed at this point, so there is no retry - the
+    // caller falls back to the seed catalogue.
+    return null;
+  }
+}
+
 async function hydrateCatalogFromApi() {
   if (typeof fetch !== "function") return false;
   try {
     const response = await fetch(getApiBase() + "/catalog", { headers: { Accept: "application/json" }, credentials: "include", cache: "no-store" });
     if (!response.ok) return false;
-    const payload = await response.json();
+    const payload = await readCatalogBody(response);
+    if (!payload) return false;
     if (payload && Array.isArray(payload.brands)) BRANDS = payload.brands;
     if (payload && Array.isArray(payload.categories)) CATEGORIES = payload.categories;
     if (payload && Array.isArray(payload.goals)) GOALS = payload.goals;
@@ -206,6 +258,7 @@ async function hydrateCatalogFromApi() {
       PRODUCTS = payload.products.filter(p => !p.hidden);
     }
     if (payload && Array.isArray(payload.banners)) BANNERS = payload.banners;
+    if (payload && Array.isArray(payload.combos)) COMBOS = payload.combos;
     if (payload && payload.slideshowSettings && typeof payload.slideshowSettings === "object") {
       SLIDESHOW_SETTINGS = payload.slideshowSettings;
     }
@@ -265,6 +318,139 @@ function mtGstRateFor(product) {
   return mtGstDefaultRate();
 }
 
+/* ---------------------------------------------------------------------------
+   COMBOS
+
+   Mirrors pricing.apply_combo_pricing() on the server so the cart shows the
+   price checkout will actually charge. The server stays authoritative - this
+   only decides what the customer sees before they get there.
+   --------------------------------------------------------------------------- */
+
+function getComboById(id) {
+  if (!id) return null;
+  return (COMBOS || []).find(c => String(c.id) === String(id)) || null;
+}
+
+// How many whole combos a set of tagged lines makes up, or 0 if the bundle no
+// longer holds (an item removed, an extra one added, mismatched quantities).
+function mtComboMultiple(present, combo) {
+  const required = {};
+  (combo.items || []).forEach(item => {
+    required[item.id] = (required[item.id] || 0) + (Number(item.quantity) || 1);
+  });
+  const presentKeys = Object.keys(present);
+  const requiredKeys = Object.keys(required);
+  if (presentKeys.length !== requiredKeys.length) return 0;
+
+  let multiple = null;
+  for (const key of requiredKeys) {
+    const needed = required[key];
+    const have = present[key] || 0;
+    if (!needed || !have || have % needed) return 0;
+    const n = have / needed;
+    if (multiple === null) multiple = n;
+    else if (n !== multiple) return 0;
+  }
+  return multiple || 0;
+}
+
+// lines: [{ id, qty, comboId, product, lineTotal }] - lineTotal is rewritten
+// in place for the lines of any bundle that still holds.
+function mtApplyComboPricing(lines) {
+  const groups = {};
+  (lines || []).forEach(line => {
+    if (line.comboId) (groups[line.comboId] = groups[line.comboId] || []).push(line);
+  });
+
+  const applied = [];
+  Object.keys(groups).forEach(comboId => {
+    const group = groups[comboId];
+    const combo = getComboById(comboId);
+    const present = {};
+    group.forEach(line => { present[line.id] = (present[line.id] || 0) + line.qty; });
+
+    const multiple = combo ? mtComboMultiple(present, combo) : 0;
+    const normalTotal = group.reduce((sum, line) => sum + Math.round(line.lineTotal), 0);
+    const target = multiple ? Math.round((Number(combo.comboPrice) || 0) * multiple) : 0;
+
+    if (!multiple || target <= 0 || target >= normalTotal || normalTotal <= 0) {
+      // Bundle broken (or no longer a saving): every line reverts to its own
+      // price, which is exactly what the server will do.
+      group.forEach(line => { line.comboBroken = !!combo; line.combo = null; });
+      return;
+    }
+
+    let allocated = 0;
+    group.forEach((line, index) => {
+      const share = index === group.length - 1
+        ? target - allocated
+        : Math.round(target * Math.round(line.lineTotal) / normalTotal);
+      if (index !== group.length - 1) allocated += share;
+      line.lineTotal = Math.max(0, share);
+    });
+
+    const summary = {
+      comboId: comboId, name: combo.name, quantity: multiple,
+      comboPrice: target, normalTotal: normalTotal, saving: normalTotal - target
+    };
+    group.forEach(line => { line.combo = summary; line.comboBroken = false; });
+    applied.push(summary);
+  });
+  return applied;
+}
+
+// Inclusive or exclusive for one product, by the same priority as the rate.
+// Mirrors pricing.product_tax_mode() so the cart and the server agree.
+function mtCleanTaxMode(value) {
+  const mode = String(value == null ? "" : value).trim().toLowerCase();
+  return mode === "inclusive" || mode === "exclusive" ? mode : null;
+}
+
+function mtDefaultTaxMode() {
+  return mtCleanTaxMode(TAX_SETTINGS && TAX_SETTINGS.taxMode) || "exclusive";
+}
+
+function mtTaxModeFor(product) {
+  const own = mtCleanTaxMode(product == null ? null : product.taxMode);
+  if (own !== null) return own;
+
+  const brandId = product && product.brand ? String(product.brand).trim().toLowerCase() : "";
+  if (brandId) {
+    const brand = (BRANDS || []).find(b => b && String(b.id).trim().toLowerCase() === brandId);
+    const brandMode = mtCleanTaxMode(brand ? brand.taxMode : null);
+    if (brandMode !== null) return brandMode;
+  }
+
+  return mtDefaultTaxMode();
+}
+
+// GST split into what is charged on top ("added") and what is already inside
+// the price ("included"). Mirrors pricing.gst_breakdown_for_line_items().
+function mtGstBreakdown(lines, discount) {
+  const empty = { added: 0, included: 0, total: 0 };
+  if (!mtGstEnabled()) return empty;
+  const rows = (lines || []).filter(Boolean);
+  if (!rows.length) return empty;
+  const subtotal = rows.reduce((sum, row) => sum + Math.round(Number(row.lineTotal) || 0), 0);
+  if (subtotal <= 0) return empty;
+
+  const spread = Math.min(Math.round(Number(discount) || 0), subtotal);
+  let added = 0;
+  let included = 0;
+  rows.forEach(row => {
+    const lineTotal = Math.round(Number(row.lineTotal) || 0);
+    const share = spread ? Math.round(spread * lineTotal / subtotal) : 0;
+    const taxable = Math.max(0, lineTotal - share);
+    const rate = mtGstRateFor(row.product);
+    if (mtTaxModeFor(row.product) === "inclusive") {
+      included += rate ? Math.round(taxable * rate / (100 + rate)) : 0;
+    } else {
+      added += Math.round(taxable * rate / 100);
+    }
+  });
+  return { added, included, total: added + included };
+}
+
 // Total GST for a set of lines, each taxed at its own product's rate. A
 // cart-wide coupon is spread across lines in proportion to their value, which
 // is exactly what pricing.gst_for_line_items() does server-side.
@@ -299,6 +485,9 @@ if (typeof window !== "undefined") {
     enabled: mtGstEnabled,
     rateFor: mtGstRateFor,
     forLines: mtGstForLines,
+    breakdown: mtGstBreakdown,
+    modeFor: mtTaxModeFor,
+    defaultMode: mtDefaultTaxMode,
     label: mtGstLabel
   };
   window.MT_API_BASE = getApiBase();

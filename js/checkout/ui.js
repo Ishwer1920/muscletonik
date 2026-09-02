@@ -96,11 +96,32 @@ window.MTCheckout.ui = (function () {
     // gstLabel already reads "GST (18%)" / "GST (mixed rates)" from the shared
     // helper; the old rate maths stays as the fallback for a stored summary.
     var gstLabel = summary.gstLabel || ("GST (" + Math.round((summary.gstRate || 0) * 100) + "%)");
-    rows.push('<div class="co-row"><span>' + esc(gstLabel) + "</span><span>" + money(summary.gst) + "</span></div>");
+    // Inclusive GST is already inside the item prices, so it is never a line
+    // that adds to the total - only the exclusive share is. gstAdded is
+    // absent on a stored summary from before tax modes existed, in which case
+    // the whole gst figure was charged on top.
+    var added = Math.round(Number(summary.gstAdded != null ? summary.gstAdded : summary.gst) || 0);
+    var included = Math.round(Number(summary.gstIncluded) || 0);
+    if (!(added === 0 && included > 0)) {
+      rows.push('<div class="co-row"><span>' + esc(gstLabel) + "</span><span>" + money(added) + "</span></div>");
+    }
     rows.push('<div class="co-row"><span>Delivery</span><span>' +
       (summary.shipping === 0 ? '<em class="co-free">FREE</em>' : money(summary.shipping)) + "</span></div>");
     rows.push('<div class="co-row co-row-total"><span>Total</span><span>' + money(summary.total) + "</span></div>");
+    var note = taxNote(added, included);
+    if (note) {
+      rows.push('<div class="co-row co-row-taxnote"><span>' + esc(note) + "</span><span></span></div>");
+    }
     return rows.join("");
+  }
+
+  // The line under the total. Fully inclusive pricing gets the familiar
+  // "Inclusive of all taxes"; a mixed cart says how much tax was already in
+  // the prices so the two figures cannot look contradictory.
+  function taxNote(added, included) {
+    if (included <= 0) return "";
+    if (added <= 0) return "Inclusive of all taxes";
+    return "Includes " + money(included) + " GST already in the item prices";
   }
 
   // Full order summary: item list + totals. Used on the checkout page.
