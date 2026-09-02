@@ -68,9 +68,37 @@ function orderCard(order) {
       <div style="margin-top:14px;">${itemsHtml}</div>
       <div class="summary-row"><span>GST + Delivery</span><span>${formatINR(order.gst + order.shipping)}</span></div>
       <div class="summary-row total"><span>Total</span><span>${formatINR(order.total)}</span></div>
+      ${deliveryBlock(order)}
       <p style="color:var(--text-light);font-size:13px;margin-top:10px;">${paymentBadge(order)}</p>
     </div>
   `;
+}
+
+// Delivery details, once an admin has filled them in (Admin -> Orders).
+// Nothing is shown while they are blank rather than promising a date the
+// shop has not committed to.
+function deliveryBlock(order) {
+  const rows = [];
+
+  if (order.estimatedDeliveryDate) {
+    const when = new Date(order.estimatedDeliveryDate);
+    if (!isNaN(when)) {
+      const label = order.fulfillmentStatus === "delivered" ? "Delivered on" : "Estimated delivery";
+      rows.push(`<div class="order-delivery-row"><span>${label}</span>
+        <b>${when.toLocaleDateString("en-IN", { dateStyle: "medium" })}</b></div>`);
+    }
+  }
+  if (order.shippingProvider) {
+    rows.push(`<div class="order-delivery-row"><span>Courier</span>
+      <b>${escapeHtml(order.shippingProvider)}</b></div>`);
+  }
+  if (order.trackingNumber) {
+    rows.push(`<div class="order-delivery-row"><span>Tracking number</span>
+      <b class="order-tracking">${escapeHtml(order.trackingNumber)}</b></div>`);
+  }
+  if (!rows.length) return "";
+
+  return `<div class="order-delivery">${rows.join("")}</div>`;
 }
 
 async function renderMyOrders() {

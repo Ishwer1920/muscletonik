@@ -25,6 +25,13 @@ def serialize_order(order):
         "paymentProvider": order.paymentProvider,
         "paymentStatus": order.paymentStatus,
         "fulfillmentStatus": order.fulfillmentStatus,
+        # Delivery tracking, set by an admin. Safe to expose: it is the
+        # customer's own courier reference, not a payment detail.
+        "trackingNumber": order.trackingNumber or "",
+        "shippingProvider": order.shippingProvider or "",
+        "estimatedDeliveryDate": (
+            order.estimatedDeliveryDate.isoformat() if order.estimatedDeliveryDate else None
+        ),
         "shippingAddress": order.shippingAddress or {},
         "createdAt": order.createdAt.isoformat() if order.createdAt else None,
     }

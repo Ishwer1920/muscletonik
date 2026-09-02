@@ -72,6 +72,9 @@ class Order(me.Document):
     razorpaySignature = me.StringField(default="")
     trackingNumber = me.StringField(default="")
     shippingProvider = me.StringField(default="")
+    # When the customer should expect it. Set by an admin in Admin -> Orders;
+    # null until someone fills it in, so nothing is promised by default.
+    estimatedDeliveryDate = me.DateTimeField(null=True, default=None)
     shippingAddress = me.DynamicField(default=dict)
     billingAddress = me.DynamicField(default=dict)
     notes = me.StringField(default="")

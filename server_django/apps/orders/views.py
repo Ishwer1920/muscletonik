@@ -16,6 +16,28 @@ FULFILLMENT_STATUSES = {
 }
 PAYMENT_STATUSES = {"pending", "paid", "failed", "refunded"}
 
+# Delivery details an admin can edit alongside the statuses.
+MAX_TRACKING = 120
+
+
+def _parse_delivery_date(value):
+    """Accept "YYYY-MM-DD" (what the admin date input sends) or a full ISO
+    timestamp. Returns (datetime|None, ok). An empty string is a deliberate
+    clear, so it comes back as (None, True)."""
+    from datetime import datetime, timezone
+    text = str(value or "").strip()
+    if not text:
+        return None, True
+    text = text.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        try:
+            parsed = datetime.strptime(text[:10], "%Y-%m-%d")
+        except ValueError:
+            return None, False
+    return (parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)), True
+
 
 @api_view(["GET"])
 @permission_classes([RequireAuth])
@@ -125,6 +147,19 @@ def update_order_status(request, order_id):
     payment_status = request.data.get("paymentStatus")
     if payment_status is not None and payment_status not in PAYMENT_STATUSES:
         errors.append({"msg": "Invalid payment status.", "param": "paymentStatus"})
+
+    delivery_date = None
+    if "estimatedDeliveryDate" in request.data:
+        delivery_date, ok = _parse_delivery_date(request.data.get("estimatedDeliveryDate"))
+        if not ok:
+            errors.append({"msg": "Estimated delivery must be a valid date.",
+                           "param": "estimatedDeliveryDate"})
+
+    for field in ("trackingNumber", "shippingProvider"):
+        if field in request.data and len(str(request.data.get(field) or "")) > MAX_TRACKING:
+            errors.append({"msg": "%s is too long (max %d characters)." % (field, MAX_TRACKING),
+                           "param": field})
+
     if errors:
         return Response({"message": "Validation failed", "errors": errors}, status=400)
 
@@ -133,6 +168,13 @@ def update_order_status(request, order_id):
         update["fulfillmentStatus"] = fulfillment_status
     if payment_status:
         update["paymentStatus"] = payment_status
+    # These are editable to empty: clearing a tracking number or a delivery
+    # date is a real action, so presence of the key is what counts, not truth.
+    if "estimatedDeliveryDate" in request.data:
+        update["estimatedDeliveryDate"] = delivery_date
+    for field in ("trackingNumber", "shippingProvider"):
+        if field in request.data:
+            update[field] = str(request.data.get(field) or "").strip()
     if not update:
         return Response({"message": "Nothing to update."}, status=400)
 

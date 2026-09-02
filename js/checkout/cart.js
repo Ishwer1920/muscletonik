@@ -129,10 +129,21 @@ window.MTCheckout.cart = (function () {
 
   // Compute the order summary from already-resolved line items. Pure function of
   // its inputs — called once per render so there is never a double calculation.
+  // A line's real total. load() runs mtApplyComboPricing over the lines, which
+  // rewrites lineTotal for any bundle that still holds, so this is the only
+  // figure that reflects combo pricing. unitPrice deliberately stays the
+  // product's normal price so the item list can still show "Rs 499 x 1".
+  function lineTotalOf(item) {
+    var value = Number(item.lineTotal);
+    return isFinite(value) && value >= 0
+      ? Math.round(value)
+      : Math.round(item.unitPrice * item.qty);
+  }
+
   function computeSummary(items, options) {
     options = options || {};
     var subtotal = items.reduce(function (sum, item) {
-      return sum + item.unitPrice * item.qty;
+      return sum + lineTotalOf(item);
     }, 0);
     subtotal = Math.round(subtotal);
 
@@ -146,7 +157,7 @@ window.MTCheckout.cart = (function () {
     var taxLines = items.map(function (i) {
       return {
         product: { gstRate: i.gstRate, brand: i.brandId, taxMode: i.taxMode },
-        lineTotal: Math.round(i.unitPrice * i.qty)
+        lineTotal: lineTotalOf(i)
       };
     });
     var gst = window.MT_TAX && window.MT_TAX.breakdown

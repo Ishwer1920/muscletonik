@@ -66,7 +66,14 @@ window.MTCheckout.ui = (function () {
           '<div class="co-item-info">' +
             '<h4>' + esc(item.name) + "</h4>" +
             (item.brand ? '<span class="co-item-brand">' + esc(item.brand) + "</span>" : "") +
-            '<span class="co-item-meta">' + money(item.unitPrice) + " × " + item.qty + "</span>" +
+            // A combo line is charged its share of the bundle price, so the
+            // unit price would not multiply out to the total shown. Say so
+            // rather than printing two figures that appear to disagree.
+            '<span class="co-item-meta">' +
+              (item.comboId
+                ? "Combo price &middot; qty " + item.qty
+                : money(item.unitPrice) + " &times; " + item.qty) +
+            "</span>" +
           "</div>" +
           '<div class="co-item-total">' + money(item.lineTotal) + "</div>" +
         "</div>";

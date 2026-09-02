@@ -1846,6 +1846,29 @@ a.deal-spotlight:hover{transform:translateY(-4px);background:rgba(255,255,255,.1
 .deal-cta{margin-top:10px;justify-content:center;}
 
 .promo-sub{font-size:15px;font-weight:600;margin-bottom:6px;}
+/* Delivery tracking on a customer's order card. */
+.order-delivery{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:var(--gray);
+  display:grid;
+  gap:6px;
+}
+.order-delivery-row{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  font-size:13px;
+  color:var(--text-light);
+}
+.order-delivery-row b{color:var(--text);font-weight:700;text-align:right;}
+.order-tracking{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.02em;
+  overflow-wrap:anywhere;
+}
+
 /* ===========================================================
    COLLECTION BANNERS
    The rotating banner slot on a collection page (Admin -> Banners, with

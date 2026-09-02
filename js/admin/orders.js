@@ -47,6 +47,25 @@ function selectHtml(id, options, current) {
   </select>`;
 }
 
+// <input type="date"> needs YYYY-MM-DD; the API sends a full ISO timestamp.
+function dateValue(iso) {
+  return typeof iso === "string" && iso.length >= 10 ? iso.slice(0, 10) : "";
+}
+
+function deliveryCell(order) {
+  return `
+    <div style="display:grid;gap:6px;min-width:190px;">
+      <label style="font-size:11px;color:var(--text-light);">Est. delivery
+        <input class="admin-select" type="date" data-field="estimatedDeliveryDate"
+          value="${dateValue(order.estimatedDeliveryDate)}" style="width:100%;">
+      </label>
+      <input class="admin-select" type="text" data-field="shippingProvider" placeholder="Courier"
+        value="${escapeHtml(order.shippingProvider || "")}" style="width:100%;">
+      <input class="admin-select" type="text" data-field="trackingNumber" placeholder="Tracking number"
+        value="${escapeHtml(order.trackingNumber || "")}" style="width:100%;">
+    </div>`;
+}
+
 function orderRow(order) {
   const date = order.createdAt ? new Date(order.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "";
   const items = order.items.map(i => `${i.name} × ${i.quantity}`).join("<br>");
@@ -64,6 +83,7 @@ function orderRow(order) {
       <td style="font-weight:700;">${formatINR(order.total)}<br><span style="font-weight:500;color:var(--text-light);font-size:12px;">${payType}</span></td>
       <td>${selectHtml("fulfillmentStatus", FULFILLMENT_OPTIONS, order.fulfillmentStatus)}</td>
       <td>${selectHtml("paymentStatus", PAYMENT_OPTIONS, order.paymentStatus)}</td>
+      <td>${deliveryCell(order)}</td>
       <td><button class="btn btn-primary btn-save" type="button" style="padding:7px 14px;font-size:13px;">Save</button><span class="save-note" style="display:block;font-size:12px;margin-top:4px;"></span></td>
     </tr>`;
 }
@@ -73,7 +93,7 @@ async function saveRow(tr) {
   const note = tr.querySelector(".save-note");
   const btn = tr.querySelector(".btn-save");
   const body = {};
-  tr.querySelectorAll("select[data-field]").forEach(sel => { body[sel.getAttribute("data-field")] = sel.value; });
+  tr.querySelectorAll("[data-field]").forEach(el => { body[el.getAttribute("data-field")] = el.value; });
   btn.disabled = true;
   note.textContent = "Saving…";
   note.style.color = "var(--text-light)";
@@ -110,7 +130,7 @@ async function loadOrders() {
       <div class="admin-table-wrap">
         <table class="admin-table">
           <thead><tr>
-            <th>Order</th><th>Customer</th><th>Items</th><th>Ship to</th><th>Total</th><th>Fulfillment</th><th>Payment</th><th></th>
+            <th>Order</th><th>Customer</th><th>Items</th><th>Ship to</th><th>Total</th><th>Fulfillment</th><th>Payment</th><th>Delivery</th><th></th>
           </tr></thead>
           <tbody>${data.orders.map(orderRow).join("")}</tbody>
         </table>
