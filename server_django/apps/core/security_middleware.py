@@ -1,8 +1,14 @@
+# NOTE: Django now serves the storefront pages too (not just the API), so the CSP
+# has to allow what the FRONTEND needs on top of the original Razorpay set:
+#   - connect-src: https://api.muscletonik.com — the pages call the API on that
+#     subdomain (cross-origin), which 'self' alone would block.
+#   - script-src 'unsafe-inline' + connect.facebook.net / www.facebook.com — the
+#     inline Meta Pixel snippet and its beacon.
 CSP = (
-    "script-src 'self' https://checkout.razorpay.com https://cdn.razorpay.com https://*.razorpay.com;"
+    "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://cdn.razorpay.com https://*.razorpay.com https://connect.facebook.net;"
     "script-src-attr 'unsafe-inline';"
     "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com;"
-    "connect-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com;"
+    "connect-src 'self' https://api.muscletonik.com https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com https://www.facebook.com https://connect.facebook.net;"
     "img-src 'self' data: https:;"
     "default-src 'self';"
     "base-uri 'self';"
