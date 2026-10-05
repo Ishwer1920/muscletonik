@@ -109,6 +109,25 @@ def verify_payment(request):
 
 
 @api_view(["POST"])
+@permission_classes([RequireAuth])
+def place_cod_order(request):
+    """Confirm a Cash-on-Delivery order directly — no online payment at all."""
+    payload = request.data or {}
+    session = services.create_checkout_session(request.user.sub, payload.get("session") or payload)
+    result = services.place_cod_order(
+        user_id=request.user.sub,
+        session=session,
+        bmi_snapshot=payload.get("bmiSnapshot"),
+    )
+    return Response({
+        "message": "Order confirmed — pay in cash on delivery.",
+        "order": order_to_dict(result["order"]),
+        "payment": payment_to_dict(result["payment"]) if result["payment"] else None,
+        "plans": result["plans"] or [],
+    })
+
+
+@api_view(["POST"])
 @permission_classes([AllowAny])
 def validate_coupon(request):
     """Quote a coupon against the cart without creating anything.

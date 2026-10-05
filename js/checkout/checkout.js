@@ -103,11 +103,9 @@
   function updateCodHint() {
     if (!els.codDesc || !state.summary) return;
     var total = Number(state.summary.total) || 0;
-    var advance = Math.round(total * 0.2);
-    var balance = total - advance;
     els.codDesc.textContent =
-      "No COD fee — it's free. Pay " + utils.formatCurrency(advance) + " online now to confirm, " +
-      utils.formatCurrency(balance) + " in cash on delivery.";
+      "No COD fee and nothing to pay now — the full " + utils.formatCurrency(total) +
+      " is paid in cash on delivery.";
   }
 
   // Show the empty / broken cart state and stop — never redirect the user away.
@@ -204,6 +202,32 @@
     var sessionPayload = payment.buildSessionPayload(state.items, currentCoupon(), address, mode);
     var orderData = null;
 
+    // Cash on Delivery: no payment step — confirm the order directly and go
+    // straight to the success page. The full amount is paid on delivery.
+    if (mode === "cod") {
+      handles.setBusy(true, "Placing your order…");
+      payment.placeCodOrder(sessionPayload)
+        .then(function (result) {
+          var order = buildLocalOrder(address, mode, result, null);
+          storage.saveOrder(order);
+          try {
+            if (typeof Cart !== "undefined" && Cart.save) Cart.save([]);
+            else localStorage.setItem("mt_cart", "[]");
+          } catch (e) { /* non-fatal — the order is already placed */ }
+          window.location.href = "payment.html?status=success";
+        })
+        .catch(function (err) {
+          state.paying = false;
+          handles.setBusy(false);
+          if (err && err.status === 401) {
+            handles.showError("Your session expired. Please sign in again to complete the order.");
+            return;
+          }
+          handles.showError((err && err.message) || "Could not place your order. Please try again.");
+        });
+      return;
+    }
+
     payment.createOrder(sessionPayload)
       .then(function (data) {
         orderData = data;
@@ -268,9 +292,9 @@
 
     var estimate = utils.deliveryEstimate(3, 5);
     var mode = paymentMode();
-    // Preview of what Razorpay will charge now. The server recomputes this and
-    // is the authority — this is only what we show before confirming.
-    var payNow = mode === "cod" ? Math.round(state.summary.total * 0.2) : state.summary.total;
+    // Preview of what's charged now. COD charges nothing up front — the whole
+    // total is paid in cash on delivery.
+    var payNow = mode === "cod" ? 0 : state.summary.total;
     ui.openConfirmModal({
       items: state.items,
       summary: state.summary,

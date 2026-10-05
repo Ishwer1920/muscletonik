@@ -202,14 +202,14 @@ window.MTCheckout.ui = (function () {
               esc(config.deliveryLabel) + "</span></div>" +
           "</div>" +
           '<div class="mt-modal-enter">' + (config.paymentMode === "cod"
-            ? "You'll pay <strong>" + money(config.payNow) + "</strong> now to confirm this order. " +
-              "The remaining <strong>" + money(config.summary.total - config.payNow) + "</strong> is due in cash on delivery."
+            ? "No payment now — you'll pay the full <strong>" + money(config.summary.total) + "</strong> in cash on delivery."
             : "You'll pay <strong>" + money(config.payNow) + "</strong> securely via Razorpay.") + "</div>" +
           '<div class="mt-modal-error" data-mt-modal-error hidden></div>' +
         "</div>" +
         '<div class="mt-modal-foot">' +
           '<button type="button" class="btn btn-outline" data-mt-cancel>Cancel</button>' +
-          '<button type="button" class="btn btn-primary" data-mt-confirm>Pay Now · ' + money(config.payNow) + "</button>" +
+          '<button type="button" class="btn btn-primary" data-mt-confirm>' +
+            (config.paymentMode === "cod" ? "Place Order" : "Pay Now · " + money(config.payNow)) + "</button>" +
         "</div>" +
       "</div>";
 
@@ -291,11 +291,9 @@ window.MTCheckout.ui = (function () {
     if (order.summary && Number.isFinite(order.summary.total)) {
       rows += '<div class="co-row"><span>Order total</span><span>' + money(order.summary.total) + "</span></div>";
     }
-    // COD orders were only part-paid; show both halves so the customer knows
-    // exactly what to hand over at the door.
+    // COD orders are paid in full on delivery — show the amount due at the door.
     if (order.paymentMode === "cod" && Number(order.balanceDue) > 0) {
-      rows += '<div class="co-row"><span>Paid online (advance)</span><span>' + money(order.advancePaid) + "</span></div>";
-      rows += '<div class="co-row"><span><strong>Due on delivery</strong></span><span><strong>' +
+      rows += '<div class="co-row"><span><strong>Pay on delivery (cash)</strong></span><span><strong>' +
         money(order.balanceDue) + "</strong></span></div>";
     }
     if (order.deliveryLabel) {
@@ -318,7 +316,7 @@ window.MTCheckout.ui = (function () {
         variant: "success", icon: CHECK_ICON,
         title: isCod ? "Order confirmed" : "Payment successful",
         text: isCod
-          ? "Thank you! Your advance has been received and your order is confirmed. Please keep the balance ready in cash for delivery."
+          ? "Thank you! Your order is confirmed — no payment was needed now. Please keep the full amount ready in cash for delivery."
           : "Thank you! Your order has been placed. A confirmation will follow shortly.",
         order: order,
         // Plan downloads are rendered by return.js into this container, because

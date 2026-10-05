@@ -316,3 +316,72 @@ def verify_and_capture_payment(user_id, session, razorpay_order_id, razorpay_pay
         for done in reserved:
             products_collection.update_one({"_id": done["id"]}, {"$inc": {"stock": done["quantity"]}})
         raise
+
+
+def place_cod_order(user_id, session, bmi_snapshot=None):
+    """Confirm a Cash-on-Delivery order immediately, with NO upfront payment.
+
+    The full amount is collected in cash on delivery. Mirrors the stock
+    reservation + order creation of the paid flow, minus Razorpay — so there is
+    no advance, no signature check and no Payment row; the order is simply
+    created in a confirmed state with the whole total owed on delivery.
+    """
+    assert_cod_allowed(session)
+
+    products_collection = Product._get_collection()
+    total = session["summary"]["total"]
+
+    reserved = []
+    for li in session["items"]:
+        if li["product"].digital:
+            continue
+        result = products_collection.update_one(
+            {"_id": li["product"].id, "stock": {"$gte": li["quantity"]}},
+            {"$inc": {"stock": -li["quantity"]}},
+        )
+        if result.modified_count != 1:
+            for done in reserved:
+                products_collection.update_one({"_id": done["id"]}, {"$inc": {"stock": done["quantity"]}})
+            raise ApiError(
+                f"Insufficient stock for {li['product'].name}. Please review your cart and try again.",
+                409,
+            )
+        reserved.append({"id": li["product"].id, "quantity": li["quantity"]})
+
+    try:
+        import time
+        order_number = f"MT-{int(time.time() * 1000)}"
+        order_doc = Order(
+            orderNumber=order_number,
+            user=user_id,
+            items=[
+                OrderItem(
+                    product=li["product"].id, name=li["product"].name,
+                    sku=li["product"].sku, weight=li.get("weight", ""),
+                    price=li.get("unitPrice", li["product"].sellingPrice),
+                    quantity=li["quantity"],
+                )
+                for li in session["items"]
+            ],
+            subtotal=session["summary"]["subtotal"],
+            discount=session["summary"]["discount"],
+            gst=session["summary"]["gst"],
+            shipping=session["summary"]["shipping"],
+            total=total,
+            # Nothing collected up front; the whole amount is paid on delivery.
+            paymentStatus="pending",
+            fulfillmentStatus="confirmed",
+            paymentProvider="cod",
+            advancePaid=0,
+            balanceDue=total,
+            shippingAddress=session["shippingAddress"] or {},
+            billingAddress=session["shippingAddress"] or {},
+        ).save()
+
+        pricing.record_redemption(session.get("coupon") or {}, user_id, order_doc)
+        plans = grant_plan_entitlements(user_id, session, order_doc, bmi_snapshot)
+        return {"order": order_doc, "payment": None, "plans": plans}
+    except Exception:
+        for done in reserved:
+            products_collection.update_one({"_id": done["id"]}, {"$inc": {"stock": done["quantity"]}})
+        raise

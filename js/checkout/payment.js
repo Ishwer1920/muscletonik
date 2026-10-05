@@ -14,8 +14,8 @@
    cart. This module sends a payment MODE ("online" | "cod"), never an amount,
    so a tampered client cannot pay less than it owes.
 
-   For mode "cod" the server charges a 20% advance now; the balance is
-   collected in cash on delivery.
+   For mode "cod" there is NO payment step: the order is confirmed directly
+   (POST /checkout/cod) and the full amount is collected in cash on delivery.
    =========================================================== */
 window.MTCheckout = window.MTCheckout || {};
 
@@ -24,9 +24,8 @@ window.MTCheckout.payment = (function () {
 
   var METHOD_LABELS = {
     online: "Razorpay (UPI / Card / Netbanking)",
-    // COD carries no convenience fee — it is free. The 20% confirmation
-    // advance is a prepayment of the order total (adjusted against the
-    // balance), shown separately on the option and the receipt, not a charge.
+    // COD carries no convenience fee and no upfront payment — the full amount
+    // is paid in cash on delivery.
     cod: "Cash on Delivery – FREE"
   };
 
@@ -84,6 +83,12 @@ window.MTCheckout.payment = (function () {
 
   function createOrder(sessionPayload) {
     return api("/checkout/order", sessionPayload);
+  }
+
+  // Cash on Delivery: confirm the order straight away with no payment. The
+  // server creates a confirmed order and the full amount is paid on delivery.
+  function placeCodOrder(sessionPayload) {
+    return api("/checkout/cod", { session: sessionPayload, bmiSnapshot: bmiSnapshot() });
   }
 
   // Open Razorpay's modal. Resolves with the handler payload on success,
@@ -163,6 +168,7 @@ window.MTCheckout.payment = (function () {
     currentUser: currentUser,
     buildSessionPayload: buildSessionPayload,
     createOrder: createOrder,
+    placeCodOrder: placeCodOrder,
     openCheckout: openCheckout,
     verifyPaymentWithServer: verifyPaymentWithServer,
     myPlans: myPlans
