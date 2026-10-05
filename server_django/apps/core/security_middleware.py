@@ -4,11 +4,14 @@
 #     subdomain (cross-origin), which 'self' alone would block.
 #   - script-src 'unsafe-inline' + connect.facebook.net / www.facebook.com — the
 #     inline Meta Pixel snippet and its beacon.
+#   - script-src www.googletagmanager.com + connect-src *.google-analytics.com /
+#     *.analytics.google.com / googletagmanager.com — the GA4 gtag.js loader and
+#     the /collect beacons it sends. (img-src already allows https: for the pixel.)
 CSP = (
-    "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://cdn.razorpay.com https://*.razorpay.com https://connect.facebook.net;"
+    "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://cdn.razorpay.com https://*.razorpay.com https://connect.facebook.net https://www.googletagmanager.com;"
     "script-src-attr 'unsafe-inline';"
     "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com;"
-    "connect-src 'self' https://api.muscletonik.com https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com https://www.facebook.com https://connect.facebook.net;"
+    "connect-src 'self' https://api.muscletonik.com https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com https://www.facebook.com https://connect.facebook.net https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com;"
     "img-src 'self' data: https:;"
     "default-src 'self';"
     "base-uri 'self';"
