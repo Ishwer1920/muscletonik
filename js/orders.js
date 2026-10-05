@@ -54,7 +54,7 @@ function paymentBadge(order) {
 function orderCard(order) {
   const date = order.createdAt ? new Date(order.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "";
   const itemsHtml = order.items.map(item => `
-    <div class="summary-row"><span>${item.name} × ${item.quantity}</span><span>${formatINR(item.price * item.quantity)}</span></div>
+    <div class="summary-row"><span>${item.name}${item.weight ? ` (${item.weight})` : ""} × ${item.quantity}</span><span>${formatINR(item.price * item.quantity)}</span></div>
   `).join("");
   return `
     <div class="card-box" style="margin-bottom:16px;">

@@ -74,6 +74,17 @@ def map_product(p, threshold_days=None):
         "calories": p.calories or 0,
         "flavor": p.flavor or "",
         "weight": p.weight or "",
+        # Per-pack pricing (1 KG / 2 KG / ...). Empty for single-price products,
+        # so the storefront only shows a selector when there is a real choice.
+        "weightOptions": [
+            {
+                "label": o.label,
+                "price": pricing.round_money(o.price),
+                "mrp": pricing.round_money(o.mrp) if o.mrp else 0,
+                "stock": o.stock,
+            }
+            for o in (p.weightOptions or []) if o and o.label
+        ],
         "desc": p.description or "",
         "ingredients": p.ingredients or "",
         "images": list(p.images or []),
@@ -234,6 +245,30 @@ def live_banners():
     return out
 
 
+def live_alerts():
+    """Published, in-schedule website alerts for the storefront notification
+    bell. Admin-created only — nothing here is generated automatically, so the
+    bell never carries a fabricated notification."""
+    from apps.cms.models import Alert
+    out = []
+    for a in Alert.objects(status="published").order_by("-createdAt"):
+        if not a.is_live():
+            continue
+        out.append({
+            "id": str(a.id),
+            "title": a.title or "",
+            "description": a.description or "",
+            "type": a.type or "general",
+            "link": a.link or "",
+            "icon": a.icon or "",
+            "image": a.image or "",
+            "important": bool(a.important),
+            "duration": a.duration or 5,
+            "createdAt": _iso_utc(a.createdAt),
+        })
+    return out
+
+
 def get_catalog():
     settings_docs = list(SiteSetting.objects())
     review_docs = list(Review.objects(status="approved").order_by("-featured", "-createdAt").limit(12))
@@ -275,6 +310,12 @@ def get_catalog():
         # to the legacy hero slides, so existing setups are untouched.
         "banners": live_banners(),
         "slideshowSettings": slideshow_settings(),
+        # Admin-created website announcements for the notification bell.
+        "alerts": live_alerts(),
+        # Search-bar glow appearance (Admin -> Settings -> Search Bar Glow).
+        "searchGlow": settings.get("searchGlow") or {},
+        # Site-wide RGB Light config (Admin -> Settings -> RGB Light).
+        "rgbLight": settings.get("rgbLight") or {},
         # Store-wide GST, so cart/checkout can label and estimate at the same
         # rate the server charges. Configured in Admin -> Tax.
         # Brands already ship their own gstRate inside the brands list above,

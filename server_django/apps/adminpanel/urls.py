@@ -1,8 +1,8 @@
 from django.urls import path
 
 from . import (
-    views_analytics, views_combos, views_content, views_coupons, views_customers,
-    views_dashboard, views_inventory, views_products, views_reviews,
+    views_alerts, views_analytics, views_combos, views_content, views_coupons,
+    views_customers, views_dashboard, views_inventory, views_products, views_reviews,
     views_banners, views_settings, views_taxonomy, views_uploads,
 )
 
@@ -51,6 +51,11 @@ urlpatterns = [
     path("banners/<str:banner_id>/toggle", views_banners.toggle_banner),
     path("settings", views_settings.list_settings),
     path("settings/<str:key>", views_settings.setting_detail),
+
+    # Website alerts / announcements -> storefront notification bell.
+    path("alerts", views_alerts.alerts_collection),
+    path("alerts/<str:alert_id>", views_alerts.alert_detail),
+    path("alerts/<str:alert_id>/toggle", views_alerts.toggle_alert),
 
     path("content/homepage", views_content.homepage_detail),
     path("content/versions", views_content.list_homepage_versions),

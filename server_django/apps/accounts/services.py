@@ -8,7 +8,7 @@ from apps.core.exceptions import ApiError
 from apps.core.jwt_utils import sign_access_token, sign_refresh_token, verify_refresh_token
 from apps.core.tokens import create_token, hash_token
 
-from .models import PasswordResetOtp, User
+from .models import OtpSession, PasswordResetOtp, User
 from .validation import normalize_phone, phone_variants
 
 
@@ -290,18 +290,14 @@ def reset_channels(user):
     AND the server must be configured to use that transport. Offering SMS on a
     box with no SMS gateway would just walk the customer into a dead end."""
     from .mailer import has_smtp
-    from .sms import has_sms
 
+    # Email is the only reset channel now — SMS is parked while the mobile
+    # gateway is set up.
     channels = []
     if user.email:
         channels.append({
             "id": "email", "label": "Email",
             "destination": mask_email(user.email), "available": has_smtp(),
-        })
-    if user.phone:
-        channels.append({
-            "id": "sms", "label": "Mobile number",
-            "destination": mask_phone(user.phone), "available": has_sms(),
         })
 
     usable = [c for c in channels if c["available"]]
@@ -322,12 +318,11 @@ def issue_reset_otp(user, channel):
     cooldown and a hard cap on how many codes one reset attempt may burn, so
     the endpoint cannot be used to bill the SMS account dry.
     """
-    if channel not in ("email", "sms"):
-        raise ApiError("Choose whether to receive the code by email or SMS.", 400)
-    if channel == "sms" and not user.phone:
-        raise ApiError("This account has no mobile number saved. Use email instead.", 400)
-    if channel == "email" and not user.email:
-        raise ApiError("This account has no email saved. Use SMS instead.", 400)
+    # Email is the only reset channel now (SMS is parked while the mobile
+    # gateway is set up), so any requested channel resolves to email.
+    channel = "email"
+    if not user.email:
+        raise ApiError("This account has no email saved. Please contact support.", 400)
 
     now = datetime.now(timezone.utc)
     existing = user.passwordResetOtp
@@ -424,3 +419,161 @@ def verify_reset_otp(user, code):
     user.passwordResetOtp = None
     user.save()
     return token
+
+
+# ---------------------------------------------------------------------------
+# Passwordless OTP login / signup
+#
+# One flow serves both: a code goes to the email or mobile the shopper types,
+# and a correct code signs them in - creating the account first when the contact
+# is new. Same TTL / resend-cooldown / attempt-cap rules as the forgot-password
+# OTP, but the code lives in its own OtpSession collection because a signup code
+# must exist before any User does.
+# ---------------------------------------------------------------------------
+
+def _classify_identifier(identifier):
+    """(normalized_email, "email") for a valid email; else (None, None).
+
+    OTP login/signup is EMAIL-ONLY: SMS delivery is parked while the mobile
+    gateway is still being set up, so a phone number is no longer accepted as an
+    OTP identifier anywhere.
+    """
+    raw = str(identifier or "").strip()
+    if raw and "@" in raw:
+        return raw.lower(), "email"
+    return None, None
+
+
+def _placeholder_email(phone):
+    """A phone-only signup still needs the unique, required email field; give it
+    a reserved address the shopper can replace later from their profile."""
+    return "m{0}@phone.muscletonik.local".format(phone)
+
+
+def request_login_otp(identifier, name=""):
+    """Issue (or re-issue) a login/signup code for the given email or mobile."""
+    key, channel = _classify_identifier(identifier)
+    if not key:
+        raise ApiError("Enter a valid email address.", 400)
+
+    from .mailer import has_smtp
+    # In production we must be able to actually send the mail; in development the
+    # code is echoed on screen (devCode), so the flow stays testable before the
+    # Gmail credentials are filled in.
+    if not has_smtp() and env.IS_PRODUCTION:
+        raise ApiError("Email codes aren't available here right now. Please try again shortly, or sign in with your password.", 400)
+
+    existing = User.objects(email=key).first()
+    purpose = "login" if existing else "signup"
+
+    now = datetime.now(timezone.utc)
+    session = OtpSession.objects(identifier=key).first()
+    resend_count = 0
+    if session and session.expiresAt:
+        expires = session.expiresAt if session.expiresAt.tzinfo else session.expiresAt.replace(tzinfo=timezone.utc)
+        if expires > now:  # a live code already exists — apply cooldown + cap
+            if session.lastSentAt:
+                last = session.lastSentAt if session.lastSentAt.tzinfo else session.lastSentAt.replace(tzinfo=timezone.utc)
+                waited = (now - last).total_seconds()
+                if waited < env.OTP_RESEND_SECONDS:
+                    raise ApiError(
+                        "Please wait {0} more seconds before asking for another code.".format(
+                            int(env.OTP_RESEND_SECONDS - waited)
+                        ),
+                        429,
+                    )
+            if (session.resendCount or 0) >= env.OTP_MAX_SENDS:
+                raise ApiError("Too many codes requested. Please try again in a little while.", 429)
+            resend_count = session.resendCount or 0
+
+    code = _generate_otp()
+    masked = mask_email(key) if channel == "email" else mask_phone(key)
+    OtpSession.objects(identifier=key).update_one(
+        set__channel=channel,
+        set__destination=masked,
+        set__purpose=purpose,
+        set__name=(str(name or "").strip() or (existing.name if existing else "")),
+        set__codeHash=hash_token(code),
+        set__expiresAt=now + timedelta(minutes=env.OTP_TTL_MINUTES),
+        set__attempts=0,
+        set__resendCount=resend_count + 1,
+        set__lastSentAt=now,
+        set__createdAt=now,
+        upsert=True,
+    )
+    return {
+        "otp": code,
+        "channel": channel,
+        "destination": masked,
+        "purpose": purpose,
+        "rawDestination": key,
+        "expiresInMinutes": env.OTP_TTL_MINUTES,
+        "resendAfterSeconds": env.OTP_RESEND_SECONDS,
+    }
+
+
+def verify_login_otp(identifier, code, name="", remember_me=False):
+    """Check the code and sign the shopper in, creating the account if new."""
+    key, channel = _classify_identifier(identifier)
+    if not key:
+        raise ApiError("Enter a valid email address.", 400)
+
+    session = OtpSession.objects(identifier=key).first()
+    if not session or not session.codeHash:
+        raise ApiError("Request a new code to continue.", 400)
+
+    expires = session.expiresAt
+    if expires and expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if not expires or expires < datetime.now(timezone.utc):
+        session.delete()
+        raise ApiError("That code has expired. Request a new one.", 400)
+
+    if (session.attempts or 0) >= env.OTP_MAX_ATTEMPTS:
+        session.delete()
+        raise ApiError("Too many incorrect attempts. Request a new code.", 429)
+
+    typed = "".join(ch for ch in str(code or "") if ch.isdigit())
+    if not secrets.compare_digest(hash_token(typed), session.codeHash):
+        session.attempts = (session.attempts or 0) + 1
+        session.save()
+        remaining = max(0, env.OTP_MAX_ATTEMPTS - session.attempts)
+        raise ApiError(
+            "That code is not correct. {0} attempt(s) left.".format(remaining) if remaining
+            else "That code is not correct. Request a new code.",
+            400,
+        )
+
+    user = User.objects(email=key).first()
+
+    created = False
+    if not user:
+        display = (str(name or "").strip() or session.name or "").strip()
+        if not display:
+            display = key.split("@")[0]
+        user = User(
+            name=display,
+            email=key,
+            phone="",
+            # A random password: this account signs in by OTP. The shopper can
+            # set a real password later via forgot-password if they want one.
+            passwordHash=hash_password(create_token()),
+            # The code was just delivered to this address, so it is verified.
+            emailVerified=True,
+        ).save()
+        created = True
+
+    session.delete()
+
+    payload = _auth_payload(user)
+    access_token = sign_access_token(payload)
+    refresh_token = sign_refresh_token({**payload, "rememberMe": bool(remember_me)})
+    User.objects(id=user.id).update_one(
+        __raw__={"$push": {"refreshTokens": {"$each": [refresh_token], "$slice": -20}}}
+    )
+    return {
+        "user": build_safe_user(user),
+        "accessToken": access_token,
+        "refreshToken": refresh_token,
+        "created": created,
+    }

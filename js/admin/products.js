@@ -113,6 +113,31 @@
   function checkbox(label, name, checked) {
     return `<label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;margin-right:18px;"><input type="checkbox" name="${name}" ${checked ? "checked" : ""}> ${label}</label>`;
   }
+  // One editable pack/weight row. The inputs are intentionally NOT named, so the
+  // generic FormData loop ignores them; the submit handler reads them by class
+  // and serialises the whole set into the "weightOptions" JSON field.
+  function weightOptRow(opt) {
+    opt = opt || {};
+    return `<div class="wo-row" style="display:grid;grid-template-columns:1.1fr 1fr 1fr .8fr auto;gap:8px;align-items:end;margin-bottom:8px;">
+      <div class="a-field" style="margin:0;"><label style="font-size:11px;">Pack label</label><input class="a-input wo-label" type="text" value="${AdminShell.esc(opt.label || "")}" placeholder="2 KG"></div>
+      <div class="a-field" style="margin:0;"><label style="font-size:11px;">Price Rs</label><input class="a-input wo-price" type="number" min="0" step="1" value="${AdminShell.esc(opt.price ?? "")}"></div>
+      <div class="a-field" style="margin:0;"><label style="font-size:11px;">MRP Rs</label><input class="a-input wo-mrp" type="number" min="0" step="1" value="${AdminShell.esc(opt.mrp || "")}"></div>
+      <div class="a-field" style="margin:0;"><label style="font-size:11px;">Stock</label><input class="a-input wo-stock" type="number" min="0" step="1" value="${AdminShell.esc(opt.stock ?? "")}"></div>
+      <button type="button" class="a-btn ghost wo-del" style="padding:7px 10px;color:var(--a-red);" aria-label="Remove pack">✕</button>
+    </div>`;
+  }
+
+  // One editable flavour row (name + optional image). Like the pack rows, the
+  // inputs are NOT named — the submit handler reads them by class and serialises
+  // the whole set into the "flavors" JSON field.
+  function flavorRow(f) {
+    f = f || {};
+    return `<div class="fl-row" style="display:grid;grid-template-columns:1.1fr 1.7fr auto;gap:8px;align-items:end;margin-bottom:8px;">
+      <div class="a-field" style="margin:0;"><label style="font-size:11px;">Flavour name</label><input class="a-input fl-name" type="text" value="${AdminShell.esc(f.name || "")}" placeholder="Chocolate"></div>
+      <div class="a-field" style="margin:0;"><label style="font-size:11px;">Image URL (optional)</label><input class="a-input fl-image" type="text" value="${AdminShell.esc(f.image || "")}" placeholder="https://..."></div>
+      <button type="button" class="a-btn ghost fl-del" style="padding:7px 10px;color:var(--a-red);" aria-label="Remove flavour">✕</button>
+    </div>`;
+  }
 
   // <input type="date"> only accepts YYYY-MM-DD, but the API returns a full
   // ISO timestamp (or null), so trim it back to the date part.
@@ -172,8 +197,7 @@
             ${field("MRP Rs", "mrp", p.mrp ?? "", "number", "min=0 step=1")}
             ${field("Stock", "stock", p.stock ?? 0, "number", "min=0 step=1")}
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-            ${field("Flavor", "flavor", p.flavor || "")}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             ${field("Badge", "badge", p.badge || "")}
             ${field("Accent color", "color", p.color || "#111111")}
           </div>
@@ -182,7 +206,29 @@
             ${field("Calories", "calories", p.calories ?? 0, "number", "min=0")}
             ${field("Servings", "servings", p.servings ?? 0, "number", "min=0")}
           </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            ${field("Rating (1.0 - 5.0, shown as stars)", "rating", p.rating ?? "", "number", "min=0 max=5 step=0.1")}
+            ${field("Review count (shown next to the stars)", "reviewCount", p.reviewCount ?? 0, "number", "min=0 step=1")}
+          </div>
           ${field("Weight / Size (optional, e.g. 1kg, 250g, 60 caps)", "weight", p.weight || "")}
+          <div style="margin-top:14px;border-top:1px solid var(--a-border);padding-top:14px;">
+            <h4 style="margin-bottom:4px;font-size:14px;">Pack / weight pricing (optional)</h4>
+            <p style="font-size:12px;color:var(--a-muted);margin:0 0 10px;">
+              Add sizes like 1 KG, 2 KG, 5 KG — each with its own price. The storefront then shows a
+              pack selector and the price follows the chosen pack. Leave empty for a single-price product.
+            </p>
+            <div id="weightOptRows">${(p.weightOptions || []).map(weightOptRow).join("")}</div>
+            <button type="button" class="a-btn ghost" id="addWeightOpt" style="margin-top:8px;">+ Add pack</button>
+          </div>
+          <div style="margin-top:14px;border-top:1px solid var(--a-border);padding-top:14px;">
+            <h4 style="margin-bottom:4px;font-size:14px;">Flavours (optional)</h4>
+            <p style="font-size:12px;color:var(--a-muted);margin:0 0 10px;">
+              Add each flavour, e.g. Chocolate, Vanilla. With two or more, the storefront shows a
+              flavour selector on the product page. The image is optional (shown on the flavour chip).
+            </p>
+            <div id="flavorRows">${(p.flavors || []).map(flavorRow).join("")}</div>
+            <button type="button" class="a-btn ghost" id="addFlavor" style="margin-top:8px;">+ Add flavour</button>
+          </div>
           ${field("Short description", "shortDescription", p.shortDescription || "")}
           ${textarea("Full description", "description", p.description || "", 4)}
           ${textarea("Ingredients", "ingredients", p.ingredients || "", 3)}
@@ -456,7 +502,27 @@
     Array.from(fileInput?.files || []).forEach(file => payload.append("images", file));
     payload.set("imageUrls", JSON.stringify(parseLines(fd.get("imageUrls") || "")));
     payload.set("galleryUrls", JSON.stringify(parseLines(fd.get("galleryUrls") || "")));
-    ["sellingPrice", "mrp", "stock", "calories", "servings"].forEach(n => {
+    // Pack/weight options: read the (unnamed) editor rows and send the whole set
+    // as JSON. Always sent — an empty array clears the field server-side, turning
+    // the product back into a single-price item.
+    const weightOpts = Array.from(document.querySelectorAll("#weightOptRows .wo-row")).map(r => ({
+      label: (r.querySelector(".wo-label")?.value || "").trim(),
+      price: r.querySelector(".wo-price")?.value || "",
+      mrp: r.querySelector(".wo-mrp")?.value || "",
+      stock: r.querySelector(".wo-stock")?.value || ""
+    })).filter(o => o.label && o.price !== "");
+    payload.set("weightOptions", JSON.stringify(weightOpts));
+    // Flavours: read the (unnamed) editor rows and send the whole set as JSON.
+    // Always sent — an empty array clears flavours server-side. The server also
+    // syncs the flat "flavor" string from these names.
+    const flavorList = Array.from(document.querySelectorAll("#flavorRows .fl-row")).map(r => ({
+      name: (r.querySelector(".fl-name")?.value || "").trim(),
+      image: (r.querySelector(".fl-image")?.value || "").trim()
+    })).filter(f => f.name);
+    payload.set("flavors", JSON.stringify(flavorList));
+    // Blank numeric fields are dropped so the server keeps the existing value —
+    // rating/reviewCount included, so an empty rating never overwrites a set one.
+    ["sellingPrice", "mrp", "stock", "calories", "servings", "rating", "reviewCount"].forEach(n => {
       if (!payload.get(n)) payload.delete(n);
     });
     // These stay in the payload when blank - an empty value is how the admin
@@ -474,6 +540,24 @@
       if (box) box.textContent = err.message;
     } finally {
       btn.disabled = false;
+    }
+  });
+
+  // Add / remove pack rows. Delegated on the persistent form element so it keeps
+  // working after renderForm() replaces the modal body on each open.
+  form.addEventListener("click", e => {
+    if (e.target.closest("#addWeightOpt")) {
+      const rows = document.getElementById("weightOptRows");
+      if (rows) rows.insertAdjacentHTML("beforeend", weightOptRow({}));
+    } else if (e.target.closest(".wo-del")) {
+      const row = e.target.closest(".wo-row");
+      if (row) row.remove();
+    } else if (e.target.closest("#addFlavor")) {
+      const rows = document.getElementById("flavorRows");
+      if (rows) rows.insertAdjacentHTML("beforeend", flavorRow({}));
+    } else if (e.target.closest(".fl-del")) {
+      const row = e.target.closest(".fl-row");
+      if (row) row.remove();
     }
   });
 

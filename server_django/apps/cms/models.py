@@ -188,3 +188,61 @@ class CmsContent(me.Document):
     meta = {"collection": "cmscontents", "indexes": ["slug"], "strict": False}
 
     save = _timestamped_save
+
+
+class Alert(me.Document):
+    """A website announcement shown in the storefront notification bell.
+
+    Admin-created only — nothing here is generated automatically, so the bell
+    never shows a fabricated alert. Mirrors Banner's publish + schedule shape
+    so an alert can be drafted, scheduled, toggled on/off and deleted.
+    """
+
+    ALERT_TYPES = ["new_product", "new_brand", "new_deal", "new_banner", "sale", "update", "general"]
+
+    title = me.StringField(required=True)
+    description = me.StringField(default="")
+    type = me.StringField(choices=ALERT_TYPES, default="general")
+    link = me.StringField(default="")          # relative path or http(s) URL
+    icon = me.StringField(default="")          # optional emoji or short label
+    image = me.StringField(default="")         # optional artwork URL
+    status = me.StringField(choices=["draft", "published"], default="draft")
+    # When True, a published alert ALSO slides in as a temporary storefront
+    # popup (in addition to showing in the bell). duration is the popup's
+    # on-screen time in seconds.
+    important = me.BooleanField(default=False)
+    duration = me.IntField(default=5, min_value=1, max_value=60)
+    displayOrder = me.IntField(default=0)
+    # Optional schedule. Null on either side means "no bound that way".
+    startDate = me.DateTimeField(null=True, default=None)
+    endDate = me.DateTimeField(null=True, default=None)
+
+    createdBy = me.StringField(default="")
+    createdAt = me.DateTimeField()
+    updatedAt = me.DateTimeField()
+
+    meta = {
+        "collection": "alerts",
+        "indexes": ["status", "displayOrder", "-createdAt"],
+        "ordering": ["-createdAt"],
+        "strict": False,
+    }
+
+    save = _timestamped_save
+
+    def is_live(self, now=None):
+        """Published and inside its schedule window."""
+        if self.status != "published":
+            return False
+        now = now or datetime.now(timezone.utc)
+        start = self.startDate
+        end = self.endDate
+        if start:
+            start = start.replace(tzinfo=timezone.utc) if start.tzinfo is None else start
+            if start > now:
+                return False
+        if end:
+            end = end.replace(tzinfo=timezone.utc) if end.tzinfo is None else end
+            if end < now:
+                return False
+        return True

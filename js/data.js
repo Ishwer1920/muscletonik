@@ -126,6 +126,11 @@ let COMBOS = [];
 // Slideshow banners from the Banner collection (Admin -> Slideshow). Empty
 // means "none configured" and the hero falls back to its legacy slides.
 let BANNERS = [];
+// Admin-created website alerts (notification bell) + the search-glow config,
+// both served in the public catalogue payload.
+let ALERTS = [];
+let SEARCH_GLOW = {};
+let RGB_LIGHT = {};
 
 // How the hero slideshow behaves — set in Admin -> Slideshow, mirrored from
 // the API. These defaults only apply before the catalogue has loaded.
@@ -258,6 +263,9 @@ async function hydrateCatalogFromApi() {
       PRODUCTS = payload.products.filter(p => !p.hidden);
     }
     if (payload && Array.isArray(payload.banners)) BANNERS = payload.banners;
+    if (payload && Array.isArray(payload.alerts)) ALERTS = payload.alerts;
+    if (payload && payload.searchGlow && typeof payload.searchGlow === "object") SEARCH_GLOW = payload.searchGlow;
+    if (payload && payload.rgbLight && typeof payload.rgbLight === "object") RGB_LIGHT = payload.rgbLight;
     if (payload && Array.isArray(payload.combos)) COMBOS = payload.combos;
     if (payload && payload.slideshowSettings && typeof payload.slideshowSettings === "object") {
       SLIDESHOW_SETTINGS = payload.slideshowSettings;
@@ -502,6 +510,9 @@ if (typeof window !== "undefined") {
     get transformations() { return TRANSFORMATIONS; },
     get heroSlides() { return HERO_SLIDES; },
     get banners() { return BANNERS; },
+    get alerts() { return ALERTS; },
+    get searchGlow() { return SEARCH_GLOW; },
+    get rgbLight() { return RGB_LIGHT; },
     get slideshowSettings() { return SLIDESHOW_SETTINGS; },
     get homepageSections() { return HOMEPAGE_SECTIONS; },
     get homepageOrder() { return HOMEPAGE_ORDER; },

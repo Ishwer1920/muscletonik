@@ -184,6 +184,128 @@ function initStrengthMeters() {
   });
 }
 
+// Passwordless OTP login / signup widget. One flow for both: a code is emailed
+// to the address the shopper types; a correct code signs them in, creating the
+// account first when the email is new (the server decides login vs signup and
+// tells us via `purpose`). Email-only — mobile OTP is parked for now.
+function initOtpAuth() {
+  const toggle = document.getElementById("otpToggle");
+  const panel = document.getElementById("otpPanel");
+  if (!toggle || !panel) return;
+
+  const idInput = document.getElementById("otpIdentifier");
+  const nameField = document.getElementById("otpNameField");
+  const nameInput = document.getElementById("otpName");
+  const codeField = document.getElementById("otpCodeField");
+  const codeInput = document.getElementById("otpCode");
+  const sendBtn = document.getElementById("otpSend");
+  const verifyBtn = document.getElementById("otpVerify");
+  const resendBtn = document.getElementById("otpResend");
+  const errBox = panel.querySelector(".otp-error");
+  const devBox = document.getElementById("otpDev");
+  const ADMIN_ROLES = ["staff", "manager", "admin", "super_admin"];
+  let purpose = "login";
+
+  const setErr = m => { if (errBox) errBox.textContent = m || ""; };
+  const busy = (btn, on, label) => {
+    if (!btn) return;
+    btn.disabled = on;
+    if (on) { btn._label = btn.textContent; btn.textContent = "Please wait..."; }
+    else { btn.textContent = label || btn._label || btn.textContent; }
+  };
+
+  toggle.addEventListener("click", () => {
+    const show = panel.hasAttribute("hidden");
+    panel.toggleAttribute("hidden", !show);
+    toggle.textContent = show ? "Use password instead" : "Sign in / sign up with a code (OTP)";
+    if (show && idInput && !idInput.value) {
+      const main = document.querySelector('input[name="identifier"], input[name="email"]');
+      if (main && main.value) idInput.value = main.value.trim();
+      idInput.focus();
+    }
+  });
+
+  async function sendCode() {
+    setErr("");
+    if (devBox) { devBox.hidden = true; devBox.textContent = ""; }
+    const identifier = (idInput.value || "").trim();
+    if (!identifier) return setErr("Enter your email address.");
+    if (identifier.indexOf("@") === -1) return setErr("Enter a valid email address.");
+    busy(sendBtn, true);
+    busy(resendBtn, true);
+    try {
+      const base = resolveApiBase();
+      const res = await fetch(base + "/auth/otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ identifier, name: (nameInput && nameInput.value || "").trim() })
+      });
+      const data = await res.json().catch(() => ({}));
+      // A 502 means "code valid, delivery failed" — in dev the code is echoed as
+      // devCode, so we still let the shopper continue. A real failure with no
+      // devCode is surfaced as an error.
+      if (!res.ok && !data.devCode) {
+        setErr(data.message || "Couldn't send a code. Please try again.");
+        return;
+      }
+      purpose = data.purpose || "login";
+      codeField.hidden = false;
+      verifyBtn.hidden = false;
+      resendBtn.hidden = false;
+      sendBtn.hidden = true;
+      if (idInput) idInput.readOnly = true;
+      if (nameField) nameField.hidden = purpose !== "signup";
+      showToast(data.message || "Code sent.");
+      if (data.devCode) {
+        if (devBox) { devBox.hidden = false; devBox.textContent = "Dev mode — your code is " + data.devCode; }
+        if (codeInput) codeInput.value = data.devCode;
+      }
+      if (codeInput) codeInput.focus();
+    } catch (e) {
+      setErr("Network error. Please try again.");
+    } finally {
+      busy(sendBtn, false, "Send code");
+      busy(resendBtn, false, "Resend code");
+    }
+  }
+
+  async function verifyCode() {
+    setErr("");
+    const identifier = (idInput.value || "").trim();
+    const code = (codeInput.value || "").trim();
+    if (!code) return setErr("Enter the code you received.");
+    if (purpose === "signup" && !(nameInput && nameInput.value.trim())) {
+      return setErr("Enter your name to create the account.");
+    }
+    busy(verifyBtn, true);
+    try {
+      const data = await apiRequest("/auth/otp/verify", {
+        method: "POST",
+        body: JSON.stringify({ identifier, code, name: (nameInput && nameInput.value || "").trim() })
+      });
+      if (data.user) setSession(data.user);
+      showToast(data.message || "Signed in.");
+      if (data.user && ADMIN_ROLES.includes(data.user.role)) {
+        window.location.href = "/admin/dashboard.html";
+        return;
+      }
+      const next = safeNextTarget();
+      window.location.href = next || "dashboard.html";
+    } catch (e) {
+      setErr(e.message || "That didn't work. Please try again.");
+    } finally {
+      busy(verifyBtn, false, "Verify & continue");
+    }
+  }
+
+  sendBtn && sendBtn.addEventListener("click", sendCode);
+  resendBtn && resendBtn.addEventListener("click", sendCode);
+  verifyBtn && verifyBtn.addEventListener("click", verifyCode);
+  if (codeInput) codeInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); verifyCode(); } });
+  if (idInput) idInput.addEventListener("keydown", e => { if (e.key === "Enter" && !sendBtn.hidden) { e.preventDefault(); sendCode(); } });
+}
+
 function initPasswordToggles() {
   document.querySelectorAll("[data-pw-toggle]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -207,6 +329,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   syncSession();
   document.querySelectorAll("form[data-endpoint]").forEach(handleAuthForm);
+  initOtpAuth();
   initPasswordToggles();
   initStrengthMeters();
   fillTokenFromUrl("tokenInput");

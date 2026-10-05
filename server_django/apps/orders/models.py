@@ -17,6 +17,9 @@ class OrderItem(me.EmbeddedDocument):
     product = me.ObjectIdField(required=True)
     name = me.StringField(required=True)
     sku = me.StringField(default="")
+    # The pack/weight the customer chose, e.g. "2 KG". Blank for single-price
+    # products. `price` is the unit price for that pack, server-computed.
+    weight = me.StringField(default="")
     price = me.FloatField(required=True, min_value=0)
     quantity = me.IntField(required=True, min_value=1)
 

@@ -10,7 +10,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.audit.utils import write_audit
-from apps.catalog.models import Product
+from apps.catalog.models import Flavor, Product, WeightOption
 from apps.core.permissions import RequireAdminPanel, RequirePermission
 
 from .uploads import product_image_upload
@@ -105,6 +105,90 @@ def parse_list(value):
     return [v.strip() for v in re.split(r"[\n,]", text) if v.strip()]
 
 
+def parse_weight_options(value):
+    """Build a clean list of WeightOption from the product editor.
+
+    Accepts either a JSON array (string from a multipart form, or already a
+    list from a JSON body) of {label, price, mrp?, stock?, sku?}. Rows without
+    a label or a usable price are dropped, so a half-filled row can never save
+    a broken pack. Returns [] for empty/garbage input, which clears the field.
+    """
+    if value is None or value == "":
+        return []
+    raw = value
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if not isinstance(raw, list):
+        return []
+
+    options = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        label = str(row.get("label") or row.get("weight") or "").strip()
+        if not label:
+            continue
+        try:
+            price = float(row.get("price"))
+        except (TypeError, ValueError):
+            continue
+        if price < 0:
+            continue
+        try:
+            mrp = float(row.get("mrp")) if row.get("mrp") not in (None, "") else 0
+        except (TypeError, ValueError):
+            mrp = 0
+        stock = None
+        if row.get("stock") not in (None, ""):
+            try:
+                stock = max(0, int(float(row.get("stock"))))
+            except (TypeError, ValueError):
+                stock = None
+        options.append(WeightOption(
+            label=label, price=price, mrp=max(0, mrp),
+            stock=stock, sku=str(row.get("sku") or "").strip(),
+        ))
+    return options
+
+
+def parse_flavors(value):
+    """Build a clean list of Flavor from the product editor.
+
+    Accepts a JSON array (string from a multipart form, or already a list) of
+    {name, image?} — or plain name strings. Rows without a name, and duplicate
+    names, are dropped. Returns [] for empty/garbage input, which clears the
+    field. This is what powers the storefront flavour selector.
+    """
+    if value is None or value == "":
+        return []
+    raw = value
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if not isinstance(raw, list):
+        return []
+
+    flavors = []
+    seen = set()
+    for row in raw:
+        if isinstance(row, dict):
+            name = str(row.get("name") or "").strip()
+            image = str(row.get("image") or "").strip()
+        else:
+            name = str(row or "").strip()
+            image = ""
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        flavors.append(Flavor(name=name, image=image))
+    return flavors
+
+
 def normalize_media(data, files):
     uploaded = [f"/uploads/products/{f['filename']}" for f in files]
     image_urls = parse_list(data.get("imageUrls") or data.get("images") or data.get("imageUrl"))
@@ -126,6 +210,16 @@ def apply_editable(doc, data):
         doc.images = data["images"]
     if isinstance(data.get("galleryImages"), list):
         doc.galleryImages = data["galleryImages"]
+    # Per-pack pricing. Present-but-empty clears it, so a product can be turned
+    # back into a single-price item from the editor.
+    if "weightOptions" in data:
+        doc.weightOptions = parse_weight_options(data.get("weightOptions"))
+    # Structured flavour list (powers the storefront selector). Present-but-empty
+    # clears it. Keep the flat "flavor" string (search/summary) in sync so the
+    # two never drift apart.
+    if "flavors" in data:
+        doc.flavors = parse_flavors(data.get("flavors"))
+        doc.flavor = ", ".join(f.name for f in doc.flavors)
     doc.discountPercent = discount_from(float(doc.mrp or 0), float(doc.sellingPrice or 0))
 
 
@@ -136,11 +230,20 @@ def admin_view(p):
         "shortDescription": p.shortDescription, "badge": p.badge, "color": p.color,
         "protein": p.protein, "calories": p.calories, "servings": p.servings,
         "flavor": p.flavor, "ingredients": p.ingredients,
+        "flavors": [
+            {"name": f.name, "image": f.image or ""}
+            for f in (p.flavors or []) if f and f.name
+        ],
         "images": list(p.images or []), "galleryImages": list(p.galleryImages or []),
         "mrp": p.mrp, "sellingPrice": p.sellingPrice, "discountPercent": p.discountPercent,
         "stock": p.stock, "rating": p.rating, "reviewCount": p.reviewCount,
         "featured": p.featured, "trending": p.trending, "deal": p.deal,
         "bestSeller": p.bestSeller, "newArrival": p.newArrival, "weight": p.weight,
+        "weightOptions": [
+            {"label": o.label, "price": o.price, "mrp": o.mrp or 0,
+             "stock": o.stock, "sku": o.sku or ""}
+            for o in (p.weightOptions or []) if o and o.label
+        ],
         "status": p.status, "seoTitle": p.seoTitle, "seoDescription": p.seoDescription,
         "gstRate": p.gstRate, "taxMode": p.taxMode or "",
         "crazyDeal": p.crazyDeal, "crazyDealPrice": p.crazyDealPrice,

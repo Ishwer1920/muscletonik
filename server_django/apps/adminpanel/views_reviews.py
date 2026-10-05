@@ -119,10 +119,12 @@ def update_review(request, review_id):
     except InvalidId:
         return Response({"message": "Validation failed", "errors": [{"msg": "Invalid review id.", "param": "id"}]}, status=400)
 
-    # Node applies the same reviewValidators (non-optional productId/
-    # productName/customerName/rating/text) to both create AND update — full
-    # validation here too, not partial.
-    errors = _validate_review_body(request.data)
+    # A PATCH is a partial update: the admin's quick actions send just
+    # {"status": ...}, and the edit form sends the full object. Validate only
+    # the fields actually present, so a status-only change isn't rejected for a
+    # "missing" productId/name/rating it never intended to touch. Any field
+    # that IS present is still fully validated.
+    errors = _validate_review_body(request.data, partial=True)
     if errors:
         return Response({"message": "Validation failed", "errors": errors}, status=400)
 

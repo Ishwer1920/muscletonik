@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260915">
+<link rel="stylesheet" href="css/style.css?v=20261029">
 <!-- Meta Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
@@ -31,7 +31,7 @@ src="https://www.facebook.com/tr?id=1080942901285554&ev=PageView&noscript=1"
 <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 </head>
-<body class="mt-preloading">
+<body class="mt-preloading auth-page auth-login">
 <div class="mt-preload" id="mtPreload" role="status" aria-label="Loading Muscle Tonik">
   <svg class="mt-preload-gym" viewBox="0 0 1600 900" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid slice">
     <defs>
@@ -172,21 +172,44 @@ src="https://www.facebook.com/tr?id=1080942901285554&ev=PageView&noscript=1"
             <button type="button" class="pw-toggle" data-pw-toggle aria-label="Show password">Show</button>
           </div>
         </div>
-        <div class="field" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="field full" style="display:flex;justify-content:space-between;align-items:center;">
           <label style="margin:0;font-weight:500;"><input name="rememberMe" type="checkbox" style="accent-color:var(--primary);margin-right:8px;">Remember me</label>
           <a href="forgot-password.html" style="font-size:13px;color:var(--primary);font-weight:700;">Forgot password?</a>
         </div>
-        <p class="form-error" role="alert" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:6px;"></p>
-        <button class="btn btn-primary btn-block" type="submit">Login</button>
+        <p class="form-error full" role="alert" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:6px;"></p>
+        <button class="btn btn-primary btn-block full" type="submit">Login</button>
       </form>
+
+      <div class="otp-divider"><span>or</span></div>
+      <button type="button" id="otpToggle" class="btn btn-outline btn-block">Sign in / sign up with a code (OTP)</button>
+      <div id="otpPanel" class="otp-panel" hidden>
+        <div class="field">
+          <label for="otpIdentifier">Email address</label>
+          <input id="otpIdentifier" type="email" autocomplete="email" placeholder="you@email.com">
+        </div>
+        <div class="field" id="otpNameField" hidden>
+          <label for="otpName">Your name</label>
+          <input id="otpName" type="text" autocomplete="name" placeholder="Full name (for your new account)">
+        </div>
+        <div class="field" id="otpCodeField" hidden>
+          <label for="otpCode">Enter the 6-digit code</label>
+          <input id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="------">
+        </div>
+        <p class="form-error otp-error" role="alert" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:6px;"></p>
+        <div class="otp-dev" id="otpDev" hidden></div>
+        <button type="button" id="otpSend" class="btn btn-primary btn-block">Send code</button>
+        <button type="button" id="otpVerify" class="btn btn-primary btn-block" hidden>Verify &amp; continue</button>
+        <button type="button" id="otpResend" class="otp-link" hidden>Resend code</button>
+      </div>
+
       <p class="auth-foot">New here? <a href="register.html">Create account</a></p>
     </div>
   </div>
 </main>
 <footer class="site" id="site-footer"></footer>
-<script src="js/config.js?v=20260915"></script>
-<script src="js/data.js?v=20260915"></script>
-<script src="js/core.js?v=20260915"></script>
-<script src="js/auth.js?v=20260915"></script>
+<script src="js/config.js?v=20261029"></script>
+<script src="js/data.js?v=20261029"></script>
+<script src="js/core.js?v=20261029"></script>
+<script src="js/auth.js?v=20261029"></script>
 </body>
 </html>

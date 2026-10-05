@@ -37,6 +37,11 @@ def resolve_line_items(items):
             # Which combo, if any, this line was added as part of. Only a
             # tagged line can ever be priced at a combo rate.
             "comboId": str(item.get("comboId") or "").strip() or None,
+            # The pack/weight the shopper picked (e.g. "2 KG"). Used to price
+            # the line from the product's own weightOptions, server-side.
+            "weight": str(
+                item.get("weight") or item.get("packLabel") or item.get("variant") or ""
+            ).strip(),
         }
         for item in items
     ]
@@ -51,12 +56,23 @@ def resolve_line_items(items):
         stock = float("inf") if product.digital else (product.stock or 0)
         if stock < item["quantity"]:
             raise ApiError(f"Insufficient stock for {product.name}", 400)
+        # The chosen pack's price when the product has weight options, else the
+        # normal effective price. Always read from the catalog, never the body.
+        selected_option = pricing.find_weight_option(product, item.get("weight"))
+        unit_price = pricing.variant_unit_price(product, item.get("weight"))
+        weight_label = (
+            selected_option.label if selected_option
+            else ((product.weightOptions[0].label if product.weightOptions else "") or "")
+        )
         line_items.append({
             "product": product,
             "quantity": item["quantity"],
             "comboId": item.get("comboId"),
-            # Crazy Deal price wins when one is set — see pricing.effective_price.
-            "lineTotal": pricing.round_money(pricing.effective_price(product) * item["quantity"]),
+            # The resolved pack and its unit price, so the saved order and the
+            # summary reflect exactly what was charged.
+            "weight": weight_label,
+            "unitPrice": unit_price,
+            "lineTotal": pricing.round_money(unit_price * item["quantity"]),
         })
 
     # Re-prices any intact combo group at its flat price, and untags the lines
@@ -103,6 +119,8 @@ def create_checkout_session(user_id, payload):
         "coupon": coupon,
         "summary": {
             "subtotal": subtotal, "discount": coupon["amount"], "shipping": shipping,
+            # Cash on Delivery is free — no convenience fee is ever added.
+            "codCharge": pricing.COD_CHARGE,
             "gst": gst["total"], "gstAdded": gst["added"], "gstIncluded": gst["included"],
             # Drives the "Inclusive of all taxes" line under the total.
             "taxInclusive": gst["included"] > 0 and gst["added"] == 0,
@@ -251,7 +269,11 @@ def verify_and_capture_payment(user_id, session, razorpay_order_id, razorpay_pay
             items=[
                 OrderItem(
                     product=li["product"].id, name=li["product"].name,
-                    sku=li["product"].sku, price=li["product"].sellingPrice, quantity=li["quantity"],
+                    sku=li["product"].sku, weight=li.get("weight", ""),
+                    # The actual unit price charged for the chosen pack, so the
+                    # order records what the customer paid, not the base price.
+                    price=li.get("unitPrice", li["product"].sellingPrice),
+                    quantity=li["quantity"],
                 )
                 for li in session["items"]
             ],

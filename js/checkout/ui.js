@@ -66,6 +66,7 @@ window.MTCheckout.ui = (function () {
           '<div class="co-item-info">' +
             '<h4>' + esc(item.name) + "</h4>" +
             (item.brand ? '<span class="co-item-brand">' + esc(item.brand) + "</span>" : "") +
+            (item.weightLabel ? '<span class="co-item-brand">Pack: ' + esc(item.weightLabel) + "</span>" : "") +
             // A combo line is charged its share of the bundle price, so the
             // unit price would not multiply out to the total shown. Say so
             // rather than printing two figures that appear to disagree.
@@ -183,7 +184,8 @@ window.MTCheckout.ui = (function () {
         '<div class="mt-modal-body">' +
           '<div class="mt-modal-items">' +
             config.items.map(function (item) {
-              return '<div class="mt-modal-item"><span>' + esc(item.name) + ' × ' + item.qty +
+              return '<div class="mt-modal-item"><span>' + esc(item.name) +
+                (item.weightLabel ? " (" + esc(item.weightLabel) + ")" : "") + ' × ' + item.qty +
                 '</span><span>' + money(item.lineTotal) + "</span></div>";
             }).join("") +
           "</div>" +

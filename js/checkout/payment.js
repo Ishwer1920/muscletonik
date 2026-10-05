@@ -24,7 +24,10 @@ window.MTCheckout.payment = (function () {
 
   var METHOD_LABELS = {
     online: "Razorpay (UPI / Card / Netbanking)",
-    cod: "Cash on Delivery (20% paid online)"
+    // COD carries no convenience fee — it is free. The 20% confirmation
+    // advance is a prepayment of the order total (adjusted against the
+    // balance), shown separately on the option and the receipt, not a charge.
+    cod: "Cash on Delivery – FREE"
   };
 
   function apiBase() {
@@ -65,7 +68,7 @@ window.MTCheckout.payment = (function () {
   // so both recompute the exact same session and totals.
   function buildSessionPayload(items, couponCode, shippingAddress, mode) {
     return {
-      items: items.map(function (i) { return { id: i.id, qty: i.qty, comboId: i.comboId || null }; }),
+      items: items.map(function (i) { return { id: i.id, qty: i.qty, comboId: i.comboId || null, weight: i.weight || "" }; }),
       couponCode: couponCode || "",
       shippingAddress: shippingAddress || {},
       paymentMode: mode === "cod" ? "cod" : "online"

@@ -19,6 +19,18 @@ function getParam(name) {
   return new URLSearchParams(window.location.search).get(name);
 }
 
+// The "Max Price" slider must span the whole catalogue, otherwise premium
+// products (5 lb proteins, isolates, gainers) sit above the cap and silently
+// vanish from every listing. Derive the ceiling from the live products and
+// round up to a tidy step; fall back to 5000 only if the catalogue is empty.
+function catalogMaxPrice() {
+  var prices = (typeof PRODUCTS !== "undefined" ? PRODUCTS : [])
+    .map(function (p) { return Number(p.price); })
+    .filter(function (n) { return isFinite(n) && n > 0; });
+  if (!prices.length) return 5000;
+  return Math.max(5000, Math.ceil(Math.max.apply(null, prices) / 500) * 500);
+}
+
 function buildFilters() {
   document.getElementById("catFilters").innerHTML = CATEGORIES.map(c => `
     <label><input type="checkbox" value="${c.id}" data-type="cat" ${state.categories.includes(c.id) ? "checked" : ""}> ${c.name}</label>
@@ -64,9 +76,10 @@ function buildFilters() {
   });
 
   document.getElementById("clearFilters").addEventListener("click", () => {
-    state = { categories: [], brands: [], minRating: 0, maxPrice: 5000, sort: "popularity", search: state.search, collection: state.collection, page: 1, perPage: 20 };
-    document.getElementById("priceRange").value = 5000;
-    document.getElementById("priceLabel").textContent = formatINR(5000);
+    const maxP = catalogMaxPrice();
+    state = { categories: [], brands: [], minRating: 0, maxPrice: maxP, sort: "popularity", search: state.search, collection: state.collection, page: 1, perPage: 20 };
+    document.getElementById("priceRange").value = maxP;
+    document.getElementById("priceLabel").textContent = formatINR(maxP);
     document.querySelectorAll('input[type=checkbox]').forEach(c => c.checked = false);
     document.querySelector('input[data-type="rating"][value="0"]').checked = true;
     renderProducts();
@@ -361,6 +374,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     banner.textContent = 'Showing results for "' + search + '"';
     banner.style.display = "block";
   }
+  // Open the price slider to the full catalogue range so nothing is hidden by
+  // default; a page arriving via ?brand or ?category still shows every price.
+  const maxP = catalogMaxPrice();
+  state.maxPrice = maxP;
+  const priceInput = document.getElementById("priceRange");
+  if (priceInput) priceInput.max = maxP;
   buildFilters();
   document.getElementById("priceRange").value = state.maxPrice;
   document.getElementById("priceLabel").textContent = formatINR(state.maxPrice);

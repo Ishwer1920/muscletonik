@@ -79,7 +79,9 @@ const AdminShell = (() => {
       { key: "banners", perm: "settings", label: "Banners", href: "/admin/banners.html", icon: "content", built: true },
       // Banner collection with per-record ordering, scheduling and on/off.
       // The older Banners page still edits the legacy hero/brand-strip JSON.
-      { key: "slideshow", perm: "settings", label: "Slideshow", href: "/admin/slideshow.html", icon: "content", built: true }
+      { key: "slideshow", perm: "settings", label: "Slideshow", href: "/admin/slideshow.html", icon: "content", built: true },
+      // Website announcements shown in the storefront notification bell.
+      { key: "alerts", perm: "settings", label: "Alerts", href: "/admin/alerts.html", icon: "bell", built: true }
     ]},
     { group: "Administration", items: [
       { key: "team", label: "Team & Roles", href: "/admin/team.html", icon: "team", built: true },

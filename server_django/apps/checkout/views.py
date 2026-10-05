@@ -42,7 +42,9 @@ def create_session(request):
         "summary": session["summary"],
         "items": [
             {"id": str(li["product"].id), "name": li["product"].name,
-             "price": li["product"].sellingPrice, "quantity": li["quantity"]}
+             "weight": li.get("weight", ""),
+             "price": li.get("unitPrice", li["product"].sellingPrice),
+             "quantity": li["quantity"]}
             for li in session["items"]
         ],
     })
@@ -69,7 +71,13 @@ def create_order(request):
         "paymentMode": mode,
         "summary": session["summary"],
         "cod": (
-            {"advance": split["advance"], "balance": split["balance"], "ratePercent": round(COD_ADVANCE_RATE * 100)}
+            {
+                "advance": split["advance"], "balance": split["balance"],
+                "ratePercent": round(COD_ADVANCE_RATE * 100),
+                # COD carries no convenience fee — it is free.
+                "charge": pricing.COD_CHARGE, "free": True,
+                "label": "Cash on Delivery – FREE",
+            }
             if mode == "cod_advance" else None
         ),
     })
@@ -161,6 +169,7 @@ def validate_coupon(request):
             "subtotal": subtotal,
             "discount": result["amount"],
             "shipping": shipping,
+            "codCharge": pricing.COD_CHARGE,
             "gst": gst["total"],
             "gstAdded": gst["added"],
             "gstIncluded": gst["included"],

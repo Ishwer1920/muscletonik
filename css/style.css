@@ -239,7 +239,11 @@ header.site.scrolled{
 .suggest-empty{padding:16px;text-align:center;font-size:13px;color:var(--text-light);}
 .header-actions{display:flex;align-items:center;gap:10px;flex-shrink:0;}
 .header-actions a.act{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;font-weight:600;color:var(--text);}
-.header-actions .count{position:absolute;top:-6px;right:-10px;background:var(--primary);color:#fff;font-size:10px;font-weight:700;border-radius:50%;width:17px;height:17px;display:flex;align-items:center;justify-content:center;}
+.header-actions .count{position:absolute;top:-5px;left:50%;transform:translateX(1px);background:var(--primary);color:#fff;font-size:9.5px;font-weight:700;line-height:1;border-radius:999px;min-width:16px;height:16px;padding:0 4px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff;pointer-events:none;}
+/* An empty badge is hidden via the [hidden] attribute (toggled in updateHeaderCounts /
+   updateNotifBadge). The display:flex above would otherwise defeat the UA [hidden]
+   rule, so restate it here with enough specificity. */
+.header-actions .count[hidden],.act-notif-btn .notif-count[hidden]{display:none;}
 .burger{
   display:none;background:var(--gray);width:40px;height:40px;border-radius:10px;
   align-items:center;justify-content:center;flex-direction:column;gap:5px;flex-shrink:0;
@@ -1027,6 +1031,19 @@ input[type=range]{width:100%;accent-color:var(--primary);}
 .flavor-chip .flavor-swatch{width:30px;height:30px;border-radius:50%;overflow:hidden;background:var(--gray);flex:0 0 auto;display:flex;align-items:center;justify-content:center;}
 .flavor-chip .flavor-swatch img{width:100%;height:100%;object-fit:cover;}
 .flavor-chip .flavor-name{white-space:nowrap;}
+/* ---- pack / weight selector (product detail) ---- */
+.weight-options{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
+.weight-chip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 14px;border:1.5px solid var(--border);border-radius:14px;background:#fff;cursor:pointer;color:var(--text);transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease);min-width:84px;}
+.weight-chip:hover{transform:translateY(-1px);box-shadow:var(--shadow);border-color:var(--primary-light);}
+.weight-chip.active{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-light);}
+.weight-chip .weight-label{font-weight:700;font-size:13px;white-space:nowrap;}
+.weight-chip .weight-price{font-size:12px;color:var(--text-light);font-weight:600;}
+.weight-chip.active .weight-price{color:var(--primary);}
+/* chosen-pack labels + hints across cards, quick view, drawer and cart */
+.prod-packs{font-size:11px;color:var(--text-light);margin-top:4px;letter-spacing:.2px;}
+.qv-packs{font-size:12px;color:var(--text-light);margin:6px 0 2px;}
+.drawer-variant{display:block;font-size:11.5px;color:var(--text-light);font-weight:600;margin:2px 0;}
+.cart-variant{font-size:12px;color:var(--text-light);font-weight:600;margin-top:2px;}
 .qty-row{display:flex;align-items:center;gap:16px;margin-top:24px;}
 .qty-box{display:flex;align-items:center;border:1.5px solid var(--border);border-radius:999px;}
 .qty-box button{width:38px;height:38px;font-size:16px;font-weight:700;}
@@ -1161,6 +1178,95 @@ a.glass-card.hero-offer-card:hover{transform:translateY(-3px);box-shadow:0 18px 
 .social-btns button{flex:1;border:1.5px solid var(--border);border-radius:10px;padding:11px;font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;}
 .auth-foot{text-align:center;margin-top:22px;font-size:13.5px;}
 .auth-foot a{color:var(--primary);font-weight:700;}
+
+/* ============================================================================
+   AUTH PAGES (login / register) — minimal top bar + fit-to-screen form
+   The full store nav is replaced (js/core.js renderLayout) by a stripped bar:
+   back button (left), MUSCLE TONIK (centre), opposite action (right). On
+   desktop the card widens into the empty side space and the fields go 2–3 up so
+   the form fits WITHOUT page scroll; on phones it's one scrolling column.
+   ========================================================================== */
+.auth-header{
+  position:sticky;top:0;z-index:50;
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;
+  padding:14px 22px;background:#fff;border-bottom:1px solid var(--border);
+}
+.auth-back,.auth-alt{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:14px;font-weight:600;line-height:1;color:var(--text);
+  background:none;border:none;cursor:pointer;text-decoration:none;
+  padding:9px 13px;border-radius:10px;
+  transition:background .18s var(--ease,ease),color .18s var(--ease,ease);
+}
+.auth-back{justify-self:start;}
+.auth-alt{justify-self:end;color:var(--primary);}
+.auth-back:hover{background:var(--gray);}
+.auth-alt:hover{background:rgba(255,122,0,.12);}
+.auth-brand{
+  justify-self:center;white-space:nowrap;text-decoration:none;
+  font-family:'Poppins',sans-serif;font-weight:800;font-size:20px;letter-spacing:.5px;color:var(--dark);
+}
+.auth-brand span{color:var(--primary);}
+
+/* Compact card chrome so the taller form fits one screen. */
+.auth-page main.section{padding:16px 0 26px;}
+.auth-page .auth-wrap{max-width:480px;margin:14px auto;padding:26px 22px;}
+.auth-page .auth-wrap h1{font-size:21px;}
+.auth-page .auth-wrap p.sub{margin-top:4px;}
+
+/* Form grid — mobile-first single column (the page scrolls on phones). */
+.auth-page form{display:grid;grid-template-columns:1fr;gap:13px;align-items:start;margin-top:14px;}
+.auth-page form .field{margin-bottom:0;min-width:0;}
+.auth-page form .field input[type="text"],
+.auth-page form .field input[type="email"],
+.auth-page form .field input[type="tel"],
+.auth-page form .field input[type="password"],
+.auth-page form .field .password-field{width:100%;}
+/* Items that always run the full width of the form. */
+.auth-page form .full,
+.auth-page form .btn-block,
+.auth-page form .form-error{grid-column:1 / -1;}
+.auth-page form .btn-block{margin-top:2px;}
+
+/* .btn / .otp-link set their own `display`, which was overriding the `hidden`
+   attribute — so the Verify/Resend buttons and hidden OTP fields all showed at
+   once. Honour `hidden` on these pages. */
+.auth-page [hidden]{display:none !important;}
+
+/* The primary button and the whole OTP alternative (OR / "Use password instead"
+   / the code box / the footer link) are centred as ONE tidy column of the same
+   width, sitting directly under the main button instead of stretching the wide
+   card. Applies from tablet up; on phones they fill the single column. */
+@media (min-width:620px){
+  .auth-page .auth-wrap{max-width:640px;padding:28px 32px;}
+  .auth-page form{grid-template-columns:1fr 1fr;gap:14px 22px;}
+  .auth-page form .btn-block{justify-self:center;width:min(100%,460px);}
+  .auth-page #otpToggle,
+  .auth-page .otp-divider,
+  .auth-page .otp-panel,
+  .auth-page .auth-foot,
+  .auth-page #verificationHint{max-width:460px;margin-left:auto;margin-right:auto;}
+}
+
+/* Desktop/laptop: widen into the empty side space so nothing has to scroll.
+   Register gets three field columns; login keeps two. The centred action
+   column (button + OTP) is inherited from the rules above. */
+@media (min-width:980px){
+  .auth-page main.section{padding:14px 0 22px;}
+  .auth-register .auth-wrap{max-width:1040px;padding:30px 46px;}
+  .auth-register form{grid-template-columns:1fr 1fr 1fr;gap:15px 26px;}
+  .auth-login .auth-wrap{max-width:760px;}
+}
+
+/* Phones: icon-only header labels; keep the single scrolling column. */
+@media (max-width:560px){
+  .auth-header{padding:12px 15px;}
+  .auth-brand{font-size:17px;}
+  .auth-back span,.auth-alt span{display:none;}   /* icon-only to save width */
+  .auth-back,.auth-alt{padding:9px;}
+  .auth-page main.section{padding:12px 0 30px;}
+  .auth-page .auth-wrap{margin:12px auto;padding:22px 16px;}
+}
 
 .checkout-layout{display:grid;grid-template-columns:1fr 360px;gap:30px;align-items:start;}
 .checkout-steps{display:flex;gap:0;margin-bottom:30px;}
@@ -1586,6 +1692,15 @@ body.preview-mode header.site{top:44px;}
 .co-pay-method input{margin-top:3px;flex-shrink:0;accent-color:var(--primary);}
 .co-pay-method-body{display:flex;flex-direction:column;gap:3px;}
 .co-pay-method-title{font-weight:600;font-size:14px;}
+.cod-free-badge{display:inline-block;margin-left:6px;background:var(--green);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.4px;padding:2px 7px;border-radius:999px;vertical-align:middle;}
+/* ---- passwordless OTP login/signup widget ---- */
+.otp-divider{display:flex;align-items:center;gap:12px;margin:18px 0 12px;color:var(--text-light);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;}
+.otp-divider::before,.otp-divider::after{content:"";flex:1;height:1px;background:var(--border);}
+.otp-panel{margin-top:14px;padding:16px;border:1.5px solid var(--border);border-radius:14px;background:var(--gray,#f6f6f7);}
+.otp-panel .field{margin-bottom:12px;}
+.otp-link{display:inline-block;margin-top:10px;background:none;border:none;color:var(--primary);font-weight:700;font-size:13px;cursor:pointer;padding:0;}
+.otp-dev{margin:4px 0 10px;padding:8px 10px;border:1px dashed var(--primary);border-radius:8px;background:#fff;color:var(--primary);font-weight:700;font-size:13px;}
+#otpCode{letter-spacing:8px;font-weight:700;font-size:18px;text-align:center;}
 .co-pay-method-desc{font-size:12.5px;color:var(--text-light);line-height:1.45;}
 .checkout-secure-note{display:flex;align-items:center;gap:7px;justify-content:center;margin-top:12px;font-size:12.5px;color:var(--text-light);}
 .checkout-secure-note svg{color:var(--green);flex-shrink:0;}
@@ -2276,4 +2391,803 @@ body.mt-preloading{overflow:hidden;}
   .deal-banner{grid-template-columns:1fr;}
   .deal-spotlight{width:100%;}
   .deal-banner .promo-actions .btn{flex:1 1 auto;justify-content:center;}
+}
+
+/* ============================================================================
+   MUSCLE TONIK — PREMIUM UPGRADE LAYER  (v2026-10-04)
+   Presentation-only polish appended LAST so it refines the system above
+   without touching any markup, product data, JS hook or business logic.
+   Every selector targets a class that already exists. Deleting this whole
+   block reverts the site 1:1. Brand identity (orange/black) is preserved.
+   ========================================================================== */
+
+/* ---- A. Refined tokens: same brand hues, richer elevation -------------- */
+:root{
+  --primary-dark:#e86a00;
+  --primary-700:#cf5f00;
+  --primary-light:#fff4ea;
+  --ink:#0e0f12;
+  --surface-2:#faf8f6;
+  --text:#1f2228;
+  --text-light:#6b7078;
+  --border:#ececec;
+  --grad-primary:linear-gradient(135deg,#ff9231 0%,#ff7a00 46%,#f06500 100%);
+  --grad-dark:linear-gradient(135deg,#17181c 0%,#0f1012 100%);
+  --ring:0 0 0 4px rgba(255,122,0,.16);
+  --radius-xl:26px;
+  --shadow-xs:0 1px 2px rgba(16,17,20,.06);
+  --shadow:0 2px 4px -2px rgba(16,17,20,.06),0 12px 26px -12px rgba(16,17,20,.16);
+  --shadow-lg:0 10px 24px -12px rgba(16,17,20,.14),0 36px 70px -30px rgba(16,17,20,.26);
+}
+html{scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:#d4d4d4 transparent;}
+body{
+  background:
+    radial-gradient(1200px 520px at 100% -6%, rgba(255,122,0,.07), transparent 60%),
+    radial-gradient(900px 520px at -10% 0%, rgba(16,17,20,.04), transparent 55%),
+    var(--white);
+  color:var(--text);
+  text-rendering:optimizeLegibility;
+}
+::selection{background:rgba(255,122,0,.22);color:var(--ink);}
+body::-webkit-scrollbar{width:11px;}
+body::-webkit-scrollbar-thumb{background:#dcdcdc;border-radius:999px;border:3px solid var(--white);}
+body::-webkit-scrollbar-thumb:hover{background:#c7c7c7;}
+/* Sticky header should never cover an in-page anchor target (e.g. #bmi). */
+:target,section[id]{scroll-margin-top:92px;}
+
+/* ---- B. Typography hierarchy ------------------------------------------- */
+h1,h2,h3{letter-spacing:-0.022em;}
+.sec-head{align-items:flex-end;margin-bottom:34px;}
+.sec-head h2{font-weight:800;font-size:clamp(23px,3vw,33px);letter-spacing:-0.025em;}
+.sec-head .eyebrow{letter-spacing:.14em;font-size:11.5px;display:inline-flex;align-items:center;gap:9px;}
+.sec-head .eyebrow::before{content:"";width:22px;height:2px;border-radius:2px;background:var(--primary);}
+.sec-head .viewall{border-bottom:none;color:var(--text);padding-bottom:0;}
+.sec-head .viewall::after{content:"\2192";margin-left:7px;color:var(--primary);display:inline-block;transition:transform .2s var(--ease);}
+.sec-head .viewall:hover{color:var(--primary);}
+.sec-head .viewall:hover::after{transform:translateX(4px);}
+
+/* ---- C. Buttons & badges ----------------------------------------------- */
+.btn{font-weight:700;letter-spacing:.01em;}
+.btn-primary{background:var(--grad-primary);box-shadow:0 1px 1px rgba(0,0,0,.04),0 12px 26px -12px rgba(255,122,0,.6);}
+.btn-primary:hover{background:var(--grad-primary);filter:brightness(1.04);transform:translateY(-2px);box-shadow:0 1px 1px rgba(0,0,0,.04),0 18px 34px -14px rgba(255,122,0,.68);}
+.btn-primary:active{transform:translateY(0);filter:brightness(.98);}
+.btn-dark{background:var(--grad-dark);}
+.btn-dark:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);}
+.btn-icon{transition:background .2s var(--ease),transform .2s var(--ease),box-shadow .2s var(--ease);}
+.btn-icon:hover{transform:translateY(-1px);box-shadow:var(--shadow-xs);}
+.badge{box-shadow:0 2px 6px -2px rgba(0,0,0,.18);}
+.badge-orange{background:var(--grad-primary);}
+
+/* ---- D. Header / nav premium finish (no layout-width changes) ---------- */
+header.site{background:rgba(255,255,255,.72);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);}
+header.site.scrolled{background:rgba(255,255,255,.9);box-shadow:0 10px 30px -18px rgba(16,17,20,.28);}
+.logo .mark{box-shadow:var(--shadow-xs);border-radius:12px;}
+.logo .word{letter-spacing:-0.03em;}
+.nav-main a.nav-link:hover,.nav-main .nav-item.open>a.nav-link{box-shadow:inset 0 0 0 1px rgba(255,122,0,.14);}
+.header-search{border:1px solid transparent;transition:border-color .2s var(--ease),background .2s var(--ease),box-shadow .2s var(--ease);}
+.header-search:focus-within{background:#fff;border-color:rgba(255,122,0,.4);box-shadow:var(--ring);}
+.header-actions a.act{transition:color .2s var(--ease),transform .2s var(--ease);}
+.header-actions a.act:hover{color:var(--primary);transform:translateY(-1px);}
+.mobile-drawer .panel{border-radius:0 22px 22px 0;box-shadow:30px 0 60px -30px rgba(0,0,0,.4);}
+
+/* ---- E. Hero polish ---------------------------------------------------- */
+.hero-tag{background:rgba(255,122,0,.12);border:1px solid rgba(255,122,0,.26);padding:6px 13px;border-radius:999px;}
+.hero-metric{border-radius:16px;transition:transform .25s var(--ease),background .25s var(--ease);}
+.hero-metric:hover{transform:translateY(-3px);background:rgba(255,255,255,.1);}
+.slider-arrow{width:48px;height:48px;}
+
+/* ---- F. Section rhythm ------------------------------------------------- */
+.section{padding:72px 0;}
+.section-tight{padding:44px 0;}
+
+/* ---- G. Product cards (premium media, hover zoom, elevated CTA) --------- */
+.prod-grid{gap:20px;}
+.prod-card{border-radius:18px;box-shadow:var(--shadow-xs);}
+.prod-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg);border-color:rgba(255,122,0,.28);}
+/* Fixed, compact media height: the rich hover panel (inset:0 of the card) is
+   tuned to this. A tall square made cards over-long and left the hover panel
+   with a big empty gap / spill, so keep a bounded height. */
+.prod-media{height:190px;background:linear-gradient(180deg,#fff,#f6f4f2);}
+.prod-media-art img{transition:transform .5s var(--ease);}
+.prod-card:hover .prod-media-art img{transform:scale(1.06);}
+.prod-wish{width:38px;height:38px;border:1px solid var(--border);box-shadow:var(--shadow-xs);transition:transform .2s var(--ease),box-shadow .2s var(--ease);}
+.prod-wish:hover{transform:scale(1.08);box-shadow:var(--shadow);}
+.prod-body{padding:16px 16px 18px;gap:8px;}
+.prod-body h4{font-weight:700;letter-spacing:-0.01em;}
+.prod-price .now{font-size:18px;letter-spacing:-0.02em;}
+.prod-price .off{background:#eafaf0;padding:2px 7px;border-radius:999px;}
+.add-cart-btn{border-radius:12px;padding:12px;letter-spacing:.02em;background:var(--ink);transition:background .2s var(--ease),transform .15s var(--ease),box-shadow .2s var(--ease);}
+.add-cart-btn:hover{background:var(--grad-primary);transform:translateY(-1px);box-shadow:0 10px 22px -12px rgba(255,122,0,.68);}
+.add-cart-btn:active{transform:translateY(0);}
+
+/* ---- H. Goal / category / brand / story / review cards ----------------- */
+.goal-card{border-radius:18px;}
+.goal-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);}
+.goal-card .icon{border-radius:14px;background:var(--grad-dark);}
+.cat-card{border-radius:16px;background:var(--surface-2);border:1px solid var(--border);}
+.cat-card:hover{background:var(--grad-dark);transform:translateY(-4px);box-shadow:var(--shadow-lg);}
+.brand-card{border-radius:16px;}
+.brand-card:hover{box-shadow:var(--shadow);}
+.story-card{border-radius:20px;transition:transform .25s var(--ease),box-shadow .25s var(--ease);}
+.story-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);}
+.review-card{border-radius:18px;}
+.newsletter{background:linear-gradient(135deg,#fff4ea,#ffe9d6);border:1px solid #ffe0c2;}
+
+/* ---- I. Product detail -------------------------------------------------- */
+.pd-gallery .main-img{border-radius:var(--radius-xl);}
+.pd-info h1{font-weight:800;letter-spacing:-0.02em;}
+.pd-info .price-row .now{font-size:32px;letter-spacing:-0.02em;}
+.pd-cta-row .btn{min-height:50px;}
+.pd-tab-panel{border-radius:18px;}
+
+/* ---- J. Cart / checkout / forms ---------------------------------------- */
+.summary-box,.card-box{border-radius:18px;}
+.field input,.field textarea,.field select{border-radius:12px;transition:border-color .18s var(--ease),box-shadow .18s var(--ease);}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--primary);box-shadow:var(--ring);outline:none;}
+.auth-wrap{border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);}
+
+/* ---- K. Footer --------------------------------------------------------- */
+footer.site{background:var(--grad-dark);}
+.foot-col h5{color:#fff;letter-spacing:.1em;}
+.foot-col a{transition:color .18s var(--ease);}
+.foot-col a:hover{color:var(--primary);}
+.social-row a{transition:background .2s var(--ease),transform .2s var(--ease);}
+.social-row a:hover{background:var(--grad-primary);transform:translateY(-2px);}
+
+/* ---- L. Safe reveal-on-scroll (never hides content) --------------------
+   `.reveal` stays visible by default; only when the observer adds `.in` does
+   a one-shot fade-up play, ending at the natural (visible) state. Cards on
+   pages whose script never runs the observer simply stay visible. */
+@media (prefers-reduced-motion:no-preference){
+  .reveal.in{animation:mtRevealIn .6s var(--ease) both;}
+  @keyframes mtRevealIn{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:none;}}
+}
+
+/* ============================================================================
+   M. RESPONSIVE HARDENING — 320px → large desktop
+   Goal: no horizontal scroll, no broken/overlapping layout, comfortable tap
+   targets, and consistent 16px side gutters on phones.
+   ========================================================================== */
+
+/* Large desktops: use the extra width for a more generous premium layout. */
+@media (min-width:1600px){
+  .container{max-width:1320px;}
+  .section{padding:84px 0;}
+}
+
+/* Tablet / small laptop. */
+@media (max-width:1024px){
+  .section{padding:56px 0;}
+  .section-tight{padding:36px 0;}
+}
+
+/* Phones & small tablets: 2-up product grid (premium store pattern), tighter
+   rhythm, and tap targets >=44px. */
+@media (max-width:640px){
+  .container{padding-left:16px;padding-right:16px;}
+  .section{padding:40px 0;}
+  .section-tight{padding:28px 0;}
+  .sec-head{margin-bottom:22px;gap:10px;}
+  .prod-grid,
+  .products-layout .prod-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+  .prod-body{padding:13px 13px 15px;gap:6px;}
+  .prod-body h4{font-size:13.5px;min-height:2.6em;}
+  .prod-price .now{font-size:16px;}
+  .add-cart-btn{min-height:44px;}
+  .btn{min-height:46px;}
+  .btn-sm{min-height:40px;}
+  .newsletter{padding:26px 20px;}
+  .foot-top{gap:22px;padding:40px 16px 28px;}
+}
+
+/* Comfortable touch targets on touch devices (doesn't affect mouse desktop). */
+@media (hover:none){
+  .prod-wish{width:40px;height:40px;}
+  .qty-box button{width:42px;height:42px;}
+  .pagination button{width:42px;height:42px;}
+}
+
+/* 414 / 390 phones. */
+@media (max-width:430px){
+  .sec-head{flex-direction:column;align-items:flex-start;}
+  .hero-slide h1{font-size:clamp(28px,8.5vw,40px);}
+  .hero-ctas .btn,.hero-btns .btn{flex:1 1 auto;justify-content:center;}
+  .hero-metrics{gap:10px;}
+  .hero-metric{flex:1 1 calc(50% - 10px);min-width:0;}
+}
+
+/* 375 / 360 phones. */
+@media (max-width:384px){
+  .container{padding-left:14px;padding-right:14px;}
+  .prod-grid,.products-layout .prod-grid{gap:10px;}
+  .logo .word{font-size:16px;}
+  .prod-body h4{font-size:13px;}
+}
+
+/* 320px — smallest supported: fall back to a single, un-cramped column. */
+@media (max-width:360px){
+  .prod-grid,.products-layout .prod-grid{grid-template-columns:minmax(0,1fr);}
+  .prod-media{height:180px;}
+  .hero-metric{flex:1 1 100%;}
+}
+
+/* ============================================================================
+   N. PREMIUM LOADING SCREEN — 3D running figure, FX background, glowing bar
+   The runner's X position is driven by --mt-progress, set from the SAME real
+   percentage as the bar (core.js paint()), so figure and bar never drift.
+   ========================================================================== */
+
+/* Orange glow + faint drifting particles. Kept subtle so the wordmark and the
+   loader stay the focus — not a game screen. */
+.mt-preload-fx{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden;}
+.mt-preload-fx::before{
+  content:"";position:absolute;left:50%;top:46%;width:min(560px,92vw);height:min(560px,92vw);
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(255,122,0,.16),rgba(255,122,0,.05) 46%,transparent 66%);
+  filter:blur(8px);
+}
+.mt-preload-fx::after{
+  content:"";position:absolute;inset:0;
+  background-image:
+    radial-gradient(1.6px 1.6px at 18% 28%, rgba(255,255,255,.55), transparent 60%),
+    radial-gradient(1.6px 1.6px at 76% 22%, rgba(255,170,90,.55), transparent 60%),
+    radial-gradient(1.2px 1.2px at 38% 72%, rgba(255,255,255,.4), transparent 60%),
+    radial-gradient(1.2px 1.2px at 86% 64%, rgba(255,255,255,.35), transparent 60%),
+    radial-gradient(1.6px 1.6px at 60% 84%, rgba(255,170,90,.4), transparent 60%),
+    radial-gradient(1.2px 1.2px at 12% 82%, rgba(255,255,255,.3), transparent 60%);
+  background-repeat:no-repeat;
+  animation:mtParticles 9s ease-in-out infinite alternate;
+}
+@keyframes mtParticles{from{opacity:.45;transform:translateY(0);}to{opacity:.9;transform:translateY(-8px);}}
+
+/* Running track sits just above the bar and shares its width. */
+.mt-preload-runner-track{position:relative;width:min(320px,66vw);height:82px;margin:0 auto -2px;}
+.mt-preload-runner{
+  position:absolute;bottom:0;width:62px;height:78px;
+  /* 0% -> a half-figure in from the left; 100% -> a half-figure in from the
+     right, so the runner stays fully visible and finishes with the bar. */
+  left:calc((var(--mt-progress,0) / 100) * (100% - 62px) + 31px);
+  transform:translateX(-50%);
+  transition:left .5s cubic-bezier(.22,1,.36,1);
+}
+.mt-preload-runner-svg{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(0 7px 11px rgba(0,0,0,.5));}
+
+/* Limb pivots resolved in the SVG's own viewBox coordinates (hip / shoulder).
+   Each leg combines a swing (rotate) with a vertical squash (scaleY) toward the
+   hip — that lifts the foot during recovery and reads as a bending knee, so the
+   figure runs instead of stiffly scissoring straight sticks. */
+.mt-run-leg{transform-box:view-box;transform-origin:60px 84px;}
+.mt-run-arm{transform-box:view-box;transform-origin:60px 50px;}
+
+@media (prefers-reduced-motion:no-preference){
+  .mt-preload-runner-fig{transform-box:view-box;transform-origin:60px 140px;animation:mtRunBob .42s ease-in-out infinite;}
+  .mt-run-leg-a{animation:mtRunLegA .42s ease-in-out infinite;}
+  .mt-run-leg-b{animation:mtRunLegB .42s ease-in-out infinite;}
+  .mt-run-arm-a{animation:mtRunArmA .42s ease-in-out infinite;}
+  .mt-run-arm-b{animation:mtRunArmB .42s ease-in-out infinite;}
+  .mt-runner-shadow{transform-box:view-box;transform-origin:60px 140px;animation:mtRunShadow .42s ease-in-out infinite;}
+}
+/* Forward running lean + a stronger bob. The limb + bob animations are
+   `infinite` and position-independent, so the figure keeps running IN PLACE
+   once it reaches the end of the bar — it never freezes there. */
+@keyframes mtRunBob{
+  0%,100%{transform:rotate(-8deg) translateY(0);}
+  25%{transform:rotate(-8deg) translateY(-5px);}
+  50%{transform:rotate(-8deg) translateY(1px);}
+  75%{transform:rotate(-8deg) translateY(-5px);}
+}
+@keyframes mtRunLegA{
+  0%{transform:rotate(45deg) scaleY(1);}
+  25%{transform:rotate(12deg) scaleY(.82);}
+  50%{transform:rotate(-40deg) scaleY(.64);}
+  75%{transform:rotate(-8deg) scaleY(.88);}
+  100%{transform:rotate(45deg) scaleY(1);}
+}
+@keyframes mtRunLegB{
+  0%{transform:rotate(-40deg) scaleY(.64);}
+  25%{transform:rotate(-8deg) scaleY(.88);}
+  50%{transform:rotate(45deg) scaleY(1);}
+  75%{transform:rotate(12deg) scaleY(.82);}
+  100%{transform:rotate(-40deg) scaleY(.64);}
+}
+@keyframes mtRunArmA{
+  0%{transform:rotate(-50deg);}
+  50%{transform:rotate(52deg);}
+  100%{transform:rotate(-50deg);}
+}
+@keyframes mtRunArmB{
+  0%{transform:rotate(52deg);}
+  50%{transform:rotate(-50deg);}
+  100%{transform:rotate(52deg);}
+}
+@keyframes mtRunShadow{
+  0%,100%{transform:scaleX(1);opacity:.34;}
+  25%,75%{transform:scaleX(.72);opacity:.15;}
+}
+
+/* Premium 3D loading bar: deeper dark track, lit orange fill with glow. */
+.mt-preload-bar{
+  height:14px;background:rgba(255,255,255,.08);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.6),inset 0 -1px 0 rgba(255,255,255,.05),0 1px 0 rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.07);
+}
+.mt-preload-fill{box-shadow:0 0 18px rgba(255,122,0,.55),0 0 4px rgba(255,122,0,.85),inset 0 1px 0 rgba(255,255,255,.3);}
+
+@media (max-width:360px){
+  .mt-preload-runner-track{height:68px;}
+  .mt-preload-runner{width:50px;height:63px;left:calc((var(--mt-progress,0) / 100) * (100% - 50px) + 25px);}
+}
+
+/* ============================================================================
+   O. HEADER NOTIFICATIONS (bell + dropdown) — replaces the My Plans icon
+   ========================================================================== */
+.act-notif{position:relative;display:flex;align-items:center;}
+.act-notif-btn{
+  position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;padding:0;color:var(--text);
+  font-size:10.5px;font-weight:600;line-height:1.1;cursor:pointer;
+  transition:color .2s var(--ease),transform .2s var(--ease);
+}
+.act-notif-btn:hover{color:var(--primary);transform:translateY(-1px);}
+.act-notif-btn:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:8px;}
+.act-notif-btn .notif-count{
+  position:absolute;top:-5px;left:50%;right:auto;transform:translateX(1px);
+  background:var(--primary);color:#fff;font-size:9.5px;font-weight:700;line-height:1;
+  border-radius:999px;min-width:16px;height:16px;padding:0 4px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 2px #fff;pointer-events:none;
+}
+.notif-menu{
+  position:absolute;top:calc(100% + 12px);right:0;
+  width:320px;max-width:calc(100vw - 32px);
+  background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);
+  padding:6px;z-index:260;overflow:hidden;
+  opacity:0;visibility:hidden;transform:translateY(8px);
+  transition:opacity .18s var(--ease),transform .18s var(--ease),visibility .18s var(--ease);
+}
+.notif-menu.open{opacity:1;visibility:visible;transform:translateY(0);}
+.notif-menu-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 8px;}
+.notif-menu-head strong{font-size:13.5px;}
+.notif-menu-head a{font-size:12px;color:var(--primary);font-weight:700;}
+.notif-menu-body{display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto;padding:2px;}
+.notif-item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:11px;font-size:13px;line-height:1.45;background:var(--gray);}
+.notif-item .notif-ic{flex:0 0 auto;margin-top:1px;}
+.notif-warn{background:#fdf3e5;color:#8a5a12;}
+.notif-ok{background:#e7f7ee;color:#1c7a45;}
+.notif-info{background:#eaf2fd;color:#1d5aa8;}
+.notif-empty{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:24px 16px;color:var(--text-light);font-size:13px;}
+.notif-empty p{margin:0;}
+.notif-empty svg{color:var(--primary);}
+.notif-loading{display:flex;justify-content:center;padding:28px;}
+.notif-loading .spinner{width:24px;height:24px;}
+@media (max-width:560px){
+  .act-notif-btn .act-label{display:none;}
+  .act-notif-btn{font-size:0;line-height:0;}
+  .act-notif-btn .notif-count{font-size:10px;line-height:1;}
+}
+
+/* ============================================================================
+   P. FESTIVE BANNER — mobile legibility & no-overflow fix
+   Keeps the admin artwork; adds a gentle bottom scrim + text guards so the
+   "SPECIAL" label and heading read cleanly and nothing spills out. Desktop
+   is unchanged.
+   ========================================================================== */
+@media (max-width:640px){
+  .promo-festive{
+    min-height:300px;
+    padding:24px 18px !important;
+    background-position:center !important;
+    align-content:end;
+    text-align:center;
+  }
+  .promo-festive::before{
+    content:"";position:absolute;inset:0;z-index:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(to top,rgba(10,10,12,.62) 0%,rgba(10,10,12,.3) 42%,transparent 74%);
+  }
+  .promo-festive > *{position:relative;z-index:1;}
+  .promo-festive .promo-text{width:100%;max-width:100%;}
+  .promo-festive .promo-eyebrow{margin-bottom:10px;}
+  .promo-festive h2{font-size:clamp(20px,6.4vw,27px);line-height:1.18;overflow-wrap:anywhere;text-shadow:0 2px 10px rgba(0,0,0,.45);}
+  .promo-festive .promo-sub,
+  .promo-festive .promo-copy{font-size:13px;text-shadow:0 1px 8px rgba(0,0,0,.5);}
+  .promo-festive .promo-note{display:none;}
+  .promo-festive .promo-actions{justify-content:center;}
+  .promo-festive .promo-actions .btn{flex:1 1 auto;justify-content:center;}
+}
+@media (max-width:384px){
+  .promo-festive{min-height:264px;}
+  .promo-festive .promo-copy{display:none;}
+}
+
+/* Optional top-level "My Plans" link shows only where the nav has clear room.
+   Below this it stays reachable in the Products menu (Quick Actions) and the
+   mobile drawer, so the header bar never overflows at mid widths. */
+@media (max-width:1500px){ .nav-main a.nav-link.nav-plans{display:none;} }
+
+/* ============================================================================
+   Q. WEBSITE ALERTS in the bell dropdown — item layout + read/unread state
+   ========================================================================== */
+.notif-item{align-items:flex-start;color:var(--text);background:var(--gray);text-decoration:none;transition:background .15s var(--ease);}
+a.notif-item:hover{background:#f0eeec;}
+.notif-item.is-unread{background:var(--primary-light);box-shadow:inset 3px 0 0 var(--primary);}
+a.notif-item.is-unread:hover{background:#ffeeda;}
+.notif-ic{flex:0 0 auto;margin-top:1px;color:var(--primary);display:flex;align-items:center;justify-content:center;min-width:18px;font-size:15px;line-height:1;}
+.notif-text{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.notif-text b{font-size:13px;font-weight:700;line-height:1.3;display:flex;align-items:center;gap:7px;}
+.notif-text span{font-size:12.5px;color:var(--text-light);line-height:1.45;}
+.notif-text em{font-style:normal;font-size:11px;color:var(--text-light);font-weight:600;letter-spacing:.02em;}
+.notif-dot{width:7px;height:7px;border-radius:50%;background:var(--primary);flex:0 0 auto;}
+.notif-clear{background:none;border:none;color:var(--primary);font-weight:700;font-size:12px;cursor:pointer;padding:0;}
+.notif-clear:hover{text-decoration:underline;}
+
+/* ============================================================================
+   R. SEARCH-BAR GLOW — premium animated gradient
+   Colours / speed / intensity come from --glow-* set by core.js
+   applySearchGlow(). Desktop lights the search field's border; mobile/tablet
+   lights the compact search button (the "search icon"). Lightweight: one CSS
+   gradient animation, no canvas/JS loop.
+   ========================================================================== */
+:root{
+  --glow-c1:#ff7a00;--glow-c2:#9b5cff;--glow-c3:#2bb8ff;
+  --glow-speed:6s;--glow-amb:.4;--glow-border:.85;
+}
+@keyframes mtGlowShift{from{background-position:0% 50%;}to{background-position:300% 50%;}}
+
+/* Desktop: thin illuminated border ring + soft ambient around the field. */
+@media (min-width:1200px){
+  body.mt-glow-desktop .header-search-wrap.mt-glow{position:relative;z-index:1;}
+  body.mt-glow-desktop .header-search-wrap.mt-glow .header-search{position:relative;z-index:2;}
+  body.mt-glow-desktop .header-search-wrap.mt-glow::before,
+  body.mt-glow-desktop .header-search-wrap.mt-glow::after{
+    content:"";position:absolute;inset:-2px;border-radius:999px;pointer-events:none;
+    background:linear-gradient(90deg,var(--glow-c1),var(--glow-c2),var(--glow-c3),var(--glow-c1));
+    background-size:300% 100%;animation:mtGlowShift var(--glow-speed) linear infinite;
+  }
+  body.mt-glow-desktop .header-search-wrap.mt-glow::after{   /* crisp border ring */
+    z-index:1;opacity:var(--glow-border);padding:1.6px;
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+  }
+  body.mt-glow-desktop .header-search-wrap.mt-glow::before{ /* soft ambient bloom */
+    z-index:0;inset:-5px;filter:blur(12px);opacity:var(--glow-amb);
+  }
+}
+
+/* Mobile / tablet: the circular search button becomes a glowing search icon. */
+@media (max-width:1199px){
+  body.mt-glow-mobile .header-search-wrap.mt-glow .header-search button{position:relative;overflow:visible;isolation:isolate;}
+  body.mt-glow-mobile .header-search-wrap.mt-glow .header-search button::before,
+  body.mt-glow-mobile .header-search-wrap.mt-glow .header-search button::after{
+    content:"";position:absolute;border-radius:999px;pointer-events:none;
+    background:linear-gradient(90deg,var(--glow-c1),var(--glow-c2),var(--glow-c3),var(--glow-c1));
+    background-size:300% 100%;animation:mtGlowShift var(--glow-speed) linear infinite;
+  }
+  body.mt-glow-mobile .header-search-wrap.mt-glow .header-search button::after{
+    inset:-2.5px;z-index:-1;opacity:var(--glow-border);padding:2.5px;
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+  }
+  body.mt-glow-mobile .header-search-wrap.mt-glow .header-search button::before{
+    inset:-6px;z-index:-1;filter:blur(7px);opacity:var(--glow-amb);
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .header-search-wrap.mt-glow::before,.header-search-wrap.mt-glow::after,
+  .header-search-wrap.mt-glow .header-search button::before,
+  .header-search-wrap.mt-glow .header-search button::after{animation:none !important;}
+}
+
+/* ============================================================================
+   S. WIDER SEARCH-RESULTS DROPDOWN (desktop) + richer, hoverable results
+   The search BAR keeps its original size, position, navbar spacing and RGB
+   glow — untouched. ONLY the results dropdown grows wider than the bar and
+   centres under it, clamped with min()/100vw so it can never leave the
+   viewport. Mobile/tablet (<=1199px) keep the dropdown pinned to the existing
+   full-width search bar, so nothing forces a desktop width on small screens.
+   ========================================================================== */
+@media (min-width:1200px){
+  .search-suggest{
+    left:50%;right:auto;
+    width:min(520px,calc(100vw - 48px));
+    transform:translateX(-50%) translateY(6px);
+  }
+  .search-suggest.show{transform:translateX(-50%) translateY(0);}
+}
+
+/* Richer, roomier search results that use the extra dropdown width. */
+.search-suggest{padding:8px;}
+.suggest-item{align-items:flex-start;gap:12px;padding:10px;border-radius:12px;}
+.suggest-thumb{width:48px;height:48px;border-radius:10px;}
+.suggest-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.suggest-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;line-height:1.35;}
+.suggest-meta{font-size:12px;color:var(--text-light);}
+
+/* Hover (or keyboard-active) preview: one result expands at a time to reveal
+   existing rating / discounted price / pack info. Pointer leaves -> collapses. */
+.suggest-extra{max-height:0;opacity:0;overflow:hidden;display:flex;flex-direction:column;gap:5px;
+  transition:max-height .24s var(--ease),opacity .2s var(--ease),margin-top .2s var(--ease);}
+.suggest-item:hover .suggest-extra,.suggest-item.active .suggest-extra{max-height:130px;opacity:1;margin-top:7px;}
+.suggest-extra .sx-rating{font-size:12px;color:var(--text-light);}
+.suggest-extra .sx-rating .s{color:var(--primary);letter-spacing:1px;}
+.suggest-extra .sx-price{font-size:14px;font-weight:700;color:var(--text);}
+.suggest-extra .sx-price b{font-family:'Poppins',sans-serif;}
+.suggest-extra .sx-price s{color:var(--text-light);font-weight:500;margin-left:7px;font-size:12.5px;}
+.suggest-extra .sx-price em{color:var(--green);font-style:normal;font-weight:700;margin-left:7px;font-size:12px;}
+.suggest-extra .sx-weight{align-self:flex-start;font-size:11px;font-weight:700;color:var(--primary);background:var(--primary-light);border-radius:999px;padding:2px 10px;}
+
+/* ============================================================================
+   T. IMPORTANT ALERT POPUP — right-side slide-in with orange countdown bar
+   Rendered by core.js showImportantPopup() for a published alert with
+   important=true. Premium card, countdown synced to the admin's duration,
+   close button, click-through link, mobile-safe (bottom sheet).
+   ========================================================================== */
+.mt-important-pop{
+  position:fixed;top:84px;right:20px;z-index:400;
+  width:340px;max-width:calc(100vw - 32px);
+  background:#fff;color:var(--text);
+  border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);
+  padding:16px 16px 0;overflow:hidden;text-decoration:none;display:block;
+  transform:translateX(120%);opacity:0;
+  transition:transform .45s var(--ease),opacity .45s var(--ease);
+}
+.mt-important-pop.show{transform:translateX(0);opacity:1;}
+.mt-important-pop.hide{transform:translateX(120%);opacity:0;}
+.mt-ip-close{position:absolute;top:10px;right:10px;width:28px;height:28px;border:none;border-radius:50%;
+  background:var(--gray);display:flex;align-items:center;justify-content:center;color:var(--text-light);cursor:pointer;z-index:2;}
+.mt-ip-close:hover{background:var(--gray-mid);color:var(--text);}
+.mt-ip-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.mt-ip-ic{color:var(--primary);display:flex;align-items:center;}
+.mt-ip-tag{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--primary);}
+.mt-ip-title{font-family:'Poppins',sans-serif;font-weight:700;font-size:15px;line-height:1.3;color:var(--dark);padding-right:26px;}
+.mt-ip-desc{font-size:13px;color:var(--text-light);line-height:1.5;margin-top:5px;}
+a.mt-important-pop:hover .mt-ip-title{color:var(--primary);}
+.mt-ip-bar{height:4px;background:var(--gray-mid);border-radius:999px;margin:14px -16px 0;overflow:hidden;}
+.mt-ip-bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff9231,#ff7a00);
+  transform-origin:left center;transform:scaleX(1);
+  animation-name:mtIpCountdown;animation-timing-function:linear;animation-fill-mode:forwards;animation-play-state:paused;}
+.mt-important-pop.show .mt-ip-bar i{animation-play-state:running;}
+@keyframes mtIpCountdown{from{transform:scaleX(1);}to{transform:scaleX(0);}}
+
+/* Mobile: slide up from the bottom, compact, fully inside the viewport. */
+@media (max-width:560px){
+  .mt-important-pop{top:auto;bottom:16px;right:12px;left:12px;width:auto;max-width:none;transform:translateY(130%);}
+  .mt-important-pop.show{transform:translateY(0);}
+  .mt-important-pop.hide{transform:translateY(130%);}
+}
+
+/* ============================================================================
+   U. FREE-DELIVERY PROGRESS (cart drawer + cart page)
+   Driven by the real cart subtotal vs the real ₹599 free-ship threshold.
+   ========================================================================== */
+.free-ship{margin-bottom:14px;padding:12px 14px;border-radius:12px;background:var(--primary-light);border:1px solid #ffe0c2;}
+.free-ship.is-unlocked{background:#e7f7ee;border-color:#bce9cf;}
+.free-ship-msg{font-size:12.5px;color:var(--text);display:flex;align-items:center;gap:6px;margin-bottom:9px;line-height:1.3;}
+.free-ship-msg b{color:var(--primary-dark);font-weight:800;}
+.free-ship.is-unlocked .free-ship-msg,.free-ship.is-unlocked .free-ship-msg b{color:#1c7a45;}
+.free-ship.is-unlocked .free-ship-msg svg{color:#1c9452;}
+.free-ship-track{height:7px;border-radius:999px;background:rgba(17,17,17,.08);overflow:hidden;}
+.free-ship-track span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#ff9231,#ff7a00);transition:width .4s var(--ease);}
+.free-ship.is-unlocked .free-ship-track span{background:linear-gradient(90deg,#2fb665,#1c9452);}
+#drawerFreeShip:empty{display:none;}
+
+/* ============================================================================
+   V. SMART SUPPLEMENT FINDER (homepage section) — quiz + real recommendations
+   ========================================================================== */
+.finder-section .finder-wrap{padding:28px;}
+.finder-steps{display:flex;gap:8px;margin-bottom:16px;}
+.finder-steps span{flex:1;height:5px;border-radius:999px;background:var(--gray-mid);transition:background .25s var(--ease);}
+.finder-steps span.on{background:var(--primary);}
+.finder-count{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-light);}
+.finder-h{font-size:clamp(18px,2.6vw,24px);margin:6px 0 18px;letter-spacing:-0.02em;}
+.finder-opts{display:flex;flex-wrap:wrap;gap:12px;}
+.finder-opts.is-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));}
+.finder-opt{
+  display:flex;align-items:center;gap:10px;justify-content:flex-start;
+  padding:16px 18px;border:1.5px solid var(--border);border-radius:14px;background:#fff;
+  font-weight:700;font-size:14.5px;color:var(--text);cursor:pointer;text-align:left;
+  transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease),background .18s var(--ease);
+}
+.finder-opt:hover{transform:translateY(-2px);border-color:rgba(255,122,0,.4);box-shadow:var(--shadow);}
+.finder-opt.active{border-color:var(--primary);background:var(--primary-light);box-shadow:0 0 0 2px var(--primary-light);}
+.finder-opt-ic{font-size:22px;line-height:1;}
+.finder-nav{margin-top:18px;display:flex;justify-content:space-between;align-items:center;}
+
+.finder-result-head .eyebrow{color:var(--primary);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;}
+.finder-result-head h3{font-size:clamp(20px,2.8vw,26px);margin:6px 0 4px;letter-spacing:-0.02em;}
+.finder-result-head p{font-size:13.5px;color:var(--text-light);margin-bottom:20px;}
+.finder-stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
+.finder-card{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:#fff;transition:transform .2s var(--ease),box-shadow .2s var(--ease);}
+.finder-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);}
+.finder-card-media{height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:12px;}
+.finder-card-media img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;}
+.finder-card-media:has(img){background:#fff !important;}
+.finder-card-body{padding:14px;display:flex;flex-direction:column;gap:5px;flex:1;}
+.finder-card-brand{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-light);}
+.finder-card-name{font-size:14px;font-weight:700;line-height:1.3;color:var(--dark);display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.finder-card-rate{font-size:12px;color:var(--text-light);}
+.finder-card-rate .s{color:var(--primary);letter-spacing:1px;}
+.finder-why{font-size:12px;color:var(--text-light);line-height:1.5;margin:2px 0 4px;flex:1;}
+.finder-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;}
+.finder-card-price{font-family:'Poppins',sans-serif;font-weight:800;font-size:16px;}
+.finder-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid var(--border);}
+.finder-total{font-size:14px;color:var(--text-light);}
+.finder-total b{font-family:'Poppins',sans-serif;font-weight:800;font-size:20px;color:var(--dark);margin-left:6px;}
+.finder-foot-actions{display:flex;gap:10px;flex-wrap:wrap;}
+.finder-empty{color:var(--text-light);font-size:14px;line-height:1.6;}
+@media (max-width:640px){
+  .finder-section .finder-wrap{padding:18px;}
+  .finder-opts.is-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .finder-opt{padding:14px;font-size:13.5px;}
+  .finder-foot-actions{width:100%;}
+  .finder-foot-actions .btn{flex:1 1 auto;justify-content:center;}
+}
+@media (max-width:360px){
+  .finder-opts.is-grid{grid-template-columns:1fr;}
+}
+
+/* ============================================================================
+   W. PREMIUM MOTION — Apple-like easing + entrance/interaction polish
+   Transform/opacity only (GPU-friendly), reduced-motion aware, no layout shift.
+   ========================================================================== */
+:root{--ease-out:cubic-bezier(.22,1,.36,1);--ease-soft:cubic-bezier(.4,0,.2,1);}
+
+@media (prefers-reduced-motion:no-preference){
+  /* Smooth page reveal (opacity only — never shifts layout or breaks sticky/
+     fixed positioning). Skipped while the preloader overlay is up. */
+  body:not(.mt-preloading){animation:mtPageIn .5s var(--ease-out) both;}
+  @keyframes mtPageIn{from{opacity:0;}to{opacity:1;}}
+  /* Richer scroll reveal: fade + rise + a hair of scale on the premium curve. */
+  .reveal.in{animation:mtRevealIn .7s var(--ease-out) both;}
+  @keyframes mtRevealIn{from{opacity:0;transform:translateY(22px) scale(.985);}to{opacity:1;transform:none;}}
+}
+
+/* Buttons: springier press + smoother hover on the premium curve. */
+.btn{transition:transform .28s var(--ease-out),box-shadow .28s var(--ease-out),background .25s var(--ease-soft),color .2s var(--ease-soft),filter .2s var(--ease-soft);}
+.btn:active{transform:scale(.97);}
+.add-cart-btn:active,.qv-actions .btn:active,.pd-cta-row .btn:active,.finder-card .btn:active{transform:scale(.97);}
+
+/* Cards + tiles share one deceleration curve for a cohesive, premium feel. */
+.prod-card,.goal-card,.cat-card,.brand-card,.story-card,.finder-card,.combo-card,.review-card{
+  transition:transform .4s var(--ease-out),box-shadow .4s var(--ease-out),border-color .25s var(--ease-soft);
+}
+.nav-main a.nav-link{transition:background .25s var(--ease-out),color .2s var(--ease-soft),transform .25s var(--ease-out),box-shadow .25s var(--ease-out);}
+.header-actions a.act,.act-notif-btn{transition:color .2s var(--ease-soft),transform .25s var(--ease-out);}
+
+/* ============================================================================
+   X. PREMIUM LOADING SCREEN — finish polish
+   The controller now drives the bar/runner/number per-frame from one eased
+   value, so the fill + runner get short transitions; the number stacks large
+   under the bar with phase text; and the whole overlay scales/blurs away.
+   ========================================================================== */
+/* Per-frame updates -> keep the fill/runner responsive (no long lag). */
+.mt-preload-fill{transition:none;}
+.mt-preload-runner{transition:left .16s linear;}
+
+/* Large stacked percentage + phase text below the bar. */
+.mt-preload-meta{flex-direction:column;align-items:center;gap:6px;margin-top:6px;}
+.mt-preload-pct{font-size:clamp(30px,8vw,44px);min-width:0;text-align:center;line-height:1;}
+.mt-preload-hint{font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.5);}
+
+/* Smooth entrance for the brand + loader stack. */
+@media (prefers-reduced-motion:no-preference){
+  .mt-preload-inner{animation:mtPreIn .6s cubic-bezier(.22,1,.36,1) both;}
+  @keyframes mtPreIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+}
+
+/* Premium completion: scale up a touch, blur and fade — never an abrupt cut. */
+.mt-preload{transition:opacity .55s ease, filter .55s ease, transform .55s ease;}
+.mt-preload.is-done{opacity:0;transform:scale(1.05);filter:blur(7px);pointer-events:none;}
+
+/* ---- Subtle background motion (all very gentle, premium not gaming) ---- */
+@media (prefers-reduced-motion:no-preference){
+  /* Gym-kit backdrop slowly breathes/parallaxes. */
+  .mt-preload-gym{transform-origin:center;animation:mtGymDrift 20s ease-in-out infinite alternate;}
+  @keyframes mtGymDrift{from{transform:scale(1.03) translateY(0);}to{transform:scale(1.08) translateY(-16px);}}
+  /* Orange ambient glow gently pulses behind the brand/bar. */
+  .mt-preload-fx::before{animation:mtGlowPulse 6s ease-in-out infinite;}
+  @keyframes mtGlowPulse{
+    0%,100%{opacity:.8;transform:translate(-50%,-50%) scale(1);}
+    50%{opacity:1;transform:translate(-50%,-50%) scale(1.14);}
+  }
+  /* A slow diagonal light sweep crossing the whole panel. */
+  .mt-preload::before{
+    content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(115deg,transparent 42%,rgba(255,150,46,.10) 50%,transparent 58%);
+    background-size:280% 100%;animation:mtLightSweep 7.5s linear infinite;
+  }
+  @keyframes mtLightSweep{0%{background-position:140% 0;}100%{background-position:-140% 0;}}
+}
+
+/* ============================================================================
+   Y. RGB LIGHT — site-wide animated accent. The search bar reuses the .mt-glow
+   rules above; these add the nav-icon glow, the top light strip (incl. festival
+   bulbs) and the brand-text accent. Colours/speed/intensity come from
+   --glow-c1..c3 / --rgb-speed / --rgb-amb (set by core.js applyRgbLight());
+   mode + targets are body classes.
+   ========================================================================== */
+/* Thin light strip across the very top of every page. */
+.rgb-topstrip{display:none;width:100%;height:3px;position:relative;z-index:201;}
+body.rgb-on.rgb-top .rgb-topstrip{
+  display:block;
+  background:linear-gradient(90deg,var(--glow-c1),var(--glow-c2),var(--glow-c3),var(--glow-c1));
+  background-size:300% 100%;animation:mtGlowShift var(--rgb-speed,6s) linear infinite;
+}
+/* Festival mode: warm HANGING STRING LIGHTS across the very top of the page
+   (above the header, so they never cover the nav icons). A top wire with bulbs
+   hanging at staggered heights, a soft glow and a gentle twinkle. Admin colours
+   drive it, so warm golds give the classic festival look. */
+body.rgb-on.rgb-top.rgb-mode-festival .rgb-topstrip{
+  height:30px;background-color:transparent;
+  background-image:
+    linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.22)),
+    radial-gradient(circle, var(--glow-c1) 2.7px, transparent 3.4px),
+    radial-gradient(circle, var(--glow-c2) 2.7px, transparent 3.4px),
+    radial-gradient(circle, var(--glow-c3) 2.7px, transparent 3.4px);
+  background-repeat:repeat-x;
+  background-size:100% 1.5px, 66px 30px, 66px 30px, 66px 30px;
+  background-position:0 3px, 0 22px, 22px 27px, 44px 18px;
+  filter:drop-shadow(0 0 5px var(--glow-c1));
+  animation:mtFestiveTwinkle 1.7s ease-in-out infinite;
+}
+@keyframes mtFestiveTwinkle{
+  0%,100%{opacity:calc(.7 + var(--rgb-amb,.5) * .3);filter:brightness(1) drop-shadow(0 0 4px var(--glow-c2));}
+  50%{opacity:1;filter:brightness(1.35) drop-shadow(0 0 7px var(--glow-c1));}
+}
+
+/* Nav action icons under the RGB light. No heavy black chip behind them — that
+   read as unprofessional. Instead the icons keep their normal dark colour so
+   they sit cleanly on the light header, and the RGB light becomes a SOFT colour
+   halo glowing from behind each icon (a subtle backlight, not a solid puck).
+   Brightness follows the admin intensity (--rgb-amb). */
+body.rgb-on.rgb-nav .header-actions .act{isolation:isolate;}
+body.rgb-on.rgb-nav .header-actions .act::after{
+  content:"";position:absolute;left:50%;top:-4px;width:30px;height:30px;transform:translateX(-50%);
+  border-radius:50%;z-index:0;pointer-events:none;
+  background:conic-gradient(from 0deg,var(--glow-c1),var(--glow-c2),var(--glow-c3),var(--glow-c1));
+  filter:blur(8px);opacity:calc(.16 + var(--rgb-amb,.5) * .44);
+  animation:mtNavSpin var(--rgb-speed,6s) linear infinite;
+}
+/* Icon sits above the halo and keeps its normal (dark) colour. */
+body.rgb-on.rgb-nav .header-actions .act svg{position:relative;z-index:2;}
+body.rgb-on.rgb-nav .header-actions .act .count{z-index:3;}
+@keyframes mtNavSpin{from{transform:translateX(-50%) rotate(0);}to{transform:translateX(-50%) rotate(360deg);}}
+body.rgb-on.rgb-mode-single.rgb-nav .header-actions .act::after{animation:none;background:radial-gradient(circle,var(--glow-c1),transparent 70%);}
+
+/* Brand wordmark (header only): animated gradient text. */
+body.rgb-on.rgb-text header.site .logo .word,
+body.rgb-on.rgb-text header.site .logo .word span{
+  background:linear-gradient(90deg,var(--glow-c1),var(--glow-c2),var(--glow-c3),var(--glow-c1));
+  background-size:300% 100%;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  animation:mtGlowShift var(--rgb-speed,6s) linear infinite;
+}
+body.rgb-on.rgb-mode-single.rgb-text header.site .logo .word,
+body.rgb-on.rgb-mode-single.rgb-text header.site .logo .word span{animation:none;}
+
+/* ============================================================================
+   Z. PROFILE VERIFIED BADGE — blue seal with a ? -> check draw-in on sign-in
+   ========================================================================== */
+.auth-badge-wrap{display:inline-flex;line-height:0;}
+.auth-badge{width:18px;height:18px;overflow:visible;}
+.auth-q{transform-box:fill-box;transform-origin:center;}
+.auth-check{stroke-dasharray:24;stroke-dashoffset:0;}        /* settled: check shown */
+.auth-badge-wrap:not(.animate) .auth-q{opacity:0;}           /* settled: ? hidden */
+@media (prefers-reduced-motion:no-preference){
+  .auth-badge-wrap.animate .auth-badge{transform-origin:center;animation:authPop .5s cubic-bezier(.22,1.3,.4,1) both;}
+  .auth-badge-wrap.animate .auth-check{stroke-dashoffset:24;animation:authDraw .45s ease .62s forwards;}
+  .auth-badge-wrap.animate .auth-q{animation:authQOut .35s ease .4s forwards;}
+}
+@keyframes authPop{0%{transform:scale(0) rotate(-45deg);}65%{transform:scale(1.14) rotate(8deg);}100%{transform:scale(1) rotate(0);}}
+@keyframes authDraw{from{stroke-dashoffset:24;}to{stroke-dashoffset:0;}}
+@keyframes authQOut{0%{opacity:1;}100%{opacity:0;transform:scale(.4);}}
+@media (prefers-reduced-motion:reduce){
+  .auth-badge-wrap .auth-q{opacity:0;}
+  .auth-badge-wrap .auth-check{stroke-dashoffset:0;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  body.rgb-on .rgb-topstrip,
+  body.rgb-on.rgb-nav .header-actions .act::after,
+  body.rgb-on.rgb-text header.site .logo .word,
+  body.rgb-on.rgb-text header.site .logo .word span{animation:none !important;}
 }

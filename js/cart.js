@@ -39,7 +39,7 @@ function renderCart() {
       doneCombos[comboId] = true;
       const group = lines.filter(l => l.comboId === comboId);
       const combo = line.combo || getComboById(comboId);
-      const normal = group.reduce((sum, l) => sum + Math.round(l.product.price * l.qty), 0);
+      const normal = group.reduce((sum, l) => sum + Math.round(l.unitPrice * l.qty), 0);
       const broken = !line.combo;
       rendered.push(`<div class="combo-group${broken ? " is-broken" : ""}">
         <div class="combo-head">
@@ -58,24 +58,31 @@ function renderCart() {
       </div>`);
     }
 
-    const comboArg = comboId ? `,'${escapeHtml(comboId)}'` : "";
+    const cArg = comboId ? `'${escapeHtml(comboId)}'` : "null";
+    const wArg = `'${escapeHtml(line.weight || "")}'`;
+    const packLine = line.weightLabel
+      ? `<div class="cart-variant">Pack: ${escapeHtml(line.weightLabel)}</div>`
+      : "";
     rendered.push(`<div class="cart-item${comboId ? " in-combo" : ""}">
       <div class="thumb" style="background:${p.color}18;display:flex;align-items:center;justify-content:center;">${productImage(p)}</div>
       <div>
         <h4>${p.name}</h4>
         <span style="font-size:12px;color:var(--text-light);">${getBrandById(p.brand).name}</span>
+        ${packLine}
         <div class="qty-box" style="margin-top:10px;width:fit-content;">
-          <button onclick="updateCartQty(${p.id},-1${comboArg})">-</button>
+          <button onclick="updateCartQty(${p.id},-1,${cArg},${wArg})">-</button>
           <span>${line.qty}</span>
-          <button onclick="updateCartQty(${p.id},1${comboArg})">+</button>
+          <button onclick="updateCartQty(${p.id},1,${cArg},${wArg})">+</button>
         </div>
-        <div class="remove" onclick="Cart.remove(${p.id}${comboArg});renderCart();">Remove</div>
+        <div class="remove" onclick="Cart.remove(${p.id},${cArg},${wArg});renderCart();">Remove</div>
       </div>
       <div style="text-align:right;">
         <div style="font-weight:800;font-family:'Poppins',sans-serif;">${formatINR(line.lineTotal)}</div>
         ${line.combo
           ? '<div style="font-size:11px;color:var(--text-light);">part of combo</div>'
-          : `<div style="font-size:12px;color:var(--text-light);text-decoration:line-through;">${formatINR(p.oldPrice * line.qty)}</div>`}
+          : (line.oldUnitPrice > line.unitPrice
+              ? `<div style="font-size:12px;color:var(--text-light);text-decoration:line-through;">${formatINR(line.oldUnitPrice * line.qty)}</div>`
+              : "")}
       </div>
     </div>`);
   });
@@ -85,10 +92,10 @@ function renderCart() {
   renderSummary();
 }
 
-function updateCartQty(id, delta, comboId) {
+function updateCartQty(id, delta, comboId, weight) {
   const items = Cart.items();
-  const found = Cart.find(items, id, comboId);
-  if (found) Cart.setQty(id, found.qty + delta <= 0 ? 1 : found.qty + delta, comboId);
+  const found = Cart.find(items, id, comboId, weight);
+  if (found) Cart.setQty(id, found.qty + delta <= 0 ? 1 : found.qty + delta, comboId, weight);
   renderCart();
 }
 
@@ -129,6 +136,8 @@ function renderSummary() {
   }
   document.getElementById("sumShipping").textContent = shipping === 0 ? "Free" : formatINR(shipping);
   document.getElementById("sumTotal").textContent = formatINR(total);
+  const fs = document.getElementById("sumFreeShip");
+  if (fs) fs.innerHTML = (typeof freeShipBarHTML === "function" && Cart.items().length) ? freeShipBarHTML(afterCoupon, shipping === 0) : "";
   renderCouponNote();
 }
 
@@ -173,7 +182,7 @@ async function applyCoupon() {
     return;
   }
 
-  const items = Cart.items().map(i => ({ id: i.id, qty: i.qty }));
+  const items = Cart.items().map(i => ({ id: i.id, qty: i.qty, weight: i.weight || "" }));
   if (!items.length) {
     showToast("Your cart is empty.");
     return;

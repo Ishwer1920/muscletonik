@@ -131,3 +131,13 @@ def send_otp_sms(phone, code, minutes):
     # rendered sentence; every other provider takes the full text.
     payload = code if (env.SMS_PROVIDER or "").lower() == "msg91" else text
     return send_sms(phone, payload)
+
+
+def send_login_otp_sms(phone, code, minutes):
+    """OTP body for the passwordless login / signup flow."""
+    text = (
+        "{0} is your Muscle Tonik verification code. It expires in {1} minutes. "
+        "Do not share it with anyone.".format(code, minutes)
+    )
+    payload = code if (env.SMS_PROVIDER or "").lower() == "msg91" else text
+    return send_sms(phone, payload)

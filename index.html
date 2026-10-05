@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260915">
+<link rel="stylesheet" href="css/style.css?v=20261029">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
@@ -144,14 +144,56 @@ src="https://www.facebook.com/tr?id=1080942901285554&ev=PageView&noscript=1"
       <path d="M-96 8c-40 34-70 30-96 6" stroke-linecap="round"/>
     </g>
   </svg>
+  <div class="mt-preload-fx" aria-hidden="true"></div>
   <div class="mt-preload-inner">
     <div class="mt-preload-brand">MUSCLE <em>TONIK</em></div>
+    <div class="mt-preload-runner-track" aria-hidden="true">
+      <div class="mt-preload-runner">
+        <svg class="mt-preload-runner-svg" viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="mtRbody" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#4a4e57"/><stop offset=".5" stop-color="#262a31"/><stop offset="1" stop-color="#14161a"/>
+            </linearGradient>
+            <linearGradient id="mtRacc" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ffb061"/><stop offset="1" stop-color="#ff7a00"/>
+            </linearGradient>
+            <radialGradient id="mtRsheen" cx="36%" cy="30%" r="68%">
+              <stop offset="0" stop-color="#ffffff" stop-opacity=".5"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <ellipse class="mt-runner-shadow" cx="60" cy="140" rx="30" ry="6" fill="#000" opacity=".3"/>
+          <g class="mt-preload-runner-fig">
+            <!-- back leg + shoe (behind the torso) -->
+            <g class="mt-run-leg mt-run-leg-b">
+              <path d="M58 86 L47 108 L52 126" stroke="url(#mtRbody)" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <ellipse cx="52" cy="127" rx="10" ry="4.5" fill="url(#mtRacc)" opacity=".85"/>
+            </g>
+            <!-- back arm -->
+            <path class="mt-run-arm mt-run-arm-b" d="M60 53 L48 63 L44 55" stroke="url(#mtRbody)" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- muscular torso + sheen -->
+            <path class="mt-run-torso" d="M50 46 q10 -7 20 0 q6 20 -1 40 q-9 5 -18 0 q-6 -22 -1 -40 Z" fill="url(#mtRbody)"/>
+            <path d="M52 48 q8 -5 16 0 q3 12 -1 22 q-7 4 -14 0 q-3 -12 -1 -22 Z" fill="url(#mtRsheen)"/>
+            <!-- head + headband -->
+            <circle cx="62" cy="30" r="12" fill="url(#mtRbody)"/>
+            <circle cx="58" cy="27" r="4" fill="url(#mtRsheen)"/>
+            <path d="M50 25 h24" stroke="url(#mtRacc)" stroke-width="5" stroke-linecap="round"/>
+            <!-- front arm -->
+            <path class="mt-run-arm mt-run-arm-a" d="M62 51 L76 58 L84 50" stroke="url(#mtRbody)" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- front leg + shoe -->
+            <g class="mt-run-leg mt-run-leg-a">
+              <path d="M62 86 L72 108 L68 126" stroke="url(#mtRbody)" stroke-width="13" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <ellipse cx="68" cy="128" rx="11" ry="5" fill="url(#mtRacc)"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+    </div>
     <div class="mt-preload-bar">
       <span class="mt-preload-fill" id="mtPreloadFill"></span>
     </div>
     <div class="mt-preload-meta">
       <span class="mt-preload-pct" id="mtPreloadPct">0%</span>
-      <span class="mt-preload-hint">Loading the store</span>
+      <span class="mt-preload-hint">GETTING READY</span>
     </div>
   </div>
 </div>
@@ -366,22 +408,35 @@ src="https://www.facebook.com/tr?id=1080942901285554&ev=PageView&noscript=1"
       </div>
     </div>
   </section>
+
+  <section class="section finder-section" id="finder" data-home-section="finder">
+    <div class="container">
+      <div class="sec-head">
+        <div>
+          <span class="eyebrow">Smart supplement finder</span>
+          <h2>Not sure where to start? Build your stack in 4 taps.</h2>
+        </div>
+      </div>
+      <div class="finder-wrap card-box" id="finderApp"></div>
+    </div>
+  </section>
 </main>
 
 <footer class="site" id="site-footer" data-home-section="footer"></footer>
 
-<script src="js/config.js?v=20260915"></script>
-<script src="js/data.js?v=20260915"></script>
-<script src="js/core.js?v=20260915"></script>
-<script src="js/home.js?v=20260915"></script>
+<script src="js/config.js?v=20261029"></script>
+<script src="js/data.js?v=20261029"></script>
+<script src="js/core.js?v=20261029"></script>
+<script src="js/home.js?v=20261029"></script>
+<script src="js/finder.js?v=20261029"></script>
 <!-- Plans are paid for directly from the BMI section, so the gateway SDK and
      the checkout payment module are needed here, not just on checkout.html. -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script src="js/checkout/payment.js?v=20260915"></script>
-<script src="js/plan-content.js?v=20260915"></script>
-<script src="js/plan-export.js?v=20260915"></script>
-<script src="js/plan-download.js?v=20260915"></script>
-<script src="js/bmi.js?v=20260915"></script>
+<script src="js/checkout/payment.js?v=20261029"></script>
+<script src="js/plan-content.js?v=20261029"></script>
+<script src="js/plan-export.js?v=20261029"></script>
+<script src="js/plan-download.js?v=20261029"></script>
+<script src="js/bmi.js?v=20261029"></script>
 </body>
 </html>
 

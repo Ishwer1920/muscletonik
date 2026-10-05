@@ -112,31 +112,51 @@
     payload.rating = Number(payload.rating);
     payload.featured = payload.featured === "true";
     payload.tags = String(payload.tags || "").split(",").map(t => t.trim()).filter(Boolean);
+    const saveBtn = document.getElementById("reviewSave");
+    const origSave = saveBtn ? saveBtn.textContent : "";
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
     try {
       if (editingId) await AdminShell.api(`/admin/reviews/${editingId}`, { method: "PATCH", body: JSON.stringify(payload) });
       else await AdminShell.api("/admin/reviews", { method: "POST", body: JSON.stringify(payload) });
       AdminShell.toast(editingId ? "Review updated" : "Review created");
       closeForm();
-      load();
+      await load();
     } catch (err) {
       document.getElementById("reviewError").textContent = err.message;
+      AdminShell.toast("Failed to save review. Please try again.", "err");
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = origSave; }
     }
   });
 
-  async function remove(id, name) {
-    if (!confirm(`Delete review from ${name}?`)) return;
+  async function remove(btn, id, name) {
+    if (!confirm(`Are you sure you want to delete this review from ${name}? This cannot be undone.`)) return;
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = "Deleting...";
     try {
       await AdminShell.api(`/admin/reviews/${id}`, { method: "DELETE" });
       AdminShell.toast("Review deleted");
-      load();
+      await load();
     } catch (err) {
-      AdminShell.toast(err.message, "err");
+      AdminShell.toast("Failed to delete review. Please try again.", "err");
+      btn.disabled = false; btn.textContent = orig;
     }
   }
 
-  async function quickUpdate(id, patch) {
-    await AdminShell.api(`/admin/reviews/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
-    load();
+  // Quick status change (Approve / Reject / Spam). Disables the button while
+  // it runs, confirms with a toast, and re-renders so filters/counts stay in
+  // sync. On failure it surfaces an error toast and restores the button.
+  async function quickStatus(btn, id, status, verb) {
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = verb + "...";
+    try {
+      await AdminShell.api(`/admin/reviews/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+      AdminShell.toast(status === "spam" ? "Review marked as spam" : "Review " + status);
+      await load();   // re-render replaces this button, so no manual restore needed
+    } catch (err) {
+      AdminShell.toast(`Failed to ${verb.toLowerCase()} review. Please try again.`, "err");
+      btn.disabled = false; btn.textContent = orig;
+    }
   }
 
   async function load() {
@@ -169,14 +189,14 @@
             <button class="a-btn ghost" data-del="${r.id}" data-name="${AdminShell.esc(r.customerName)}" style="padding:7px 11px;color:var(--a-red);">Delete</button>
           </td>
         </tr>`).join("")}</tbody>`;
-    root.querySelectorAll("[data-approve]").forEach(btn => btn.addEventListener("click", () => quickUpdate(btn.dataset.approve, { status: "approved" })));
-    root.querySelectorAll("[data-reject]").forEach(btn => btn.addEventListener("click", () => quickUpdate(btn.dataset.reject, { status: "rejected" })));
-    root.querySelectorAll("[data-spam]").forEach(btn => btn.addEventListener("click", () => quickUpdate(btn.dataset.spam, { status: "spam" })));
+    root.querySelectorAll("[data-approve]").forEach(btn => btn.addEventListener("click", () => quickStatus(btn, btn.dataset.approve, "approved", "Approving")));
+    root.querySelectorAll("[data-reject]").forEach(btn => btn.addEventListener("click", () => quickStatus(btn, btn.dataset.reject, "rejected", "Rejecting")));
+    root.querySelectorAll("[data-spam]").forEach(btn => btn.addEventListener("click", () => quickStatus(btn, btn.dataset.spam, "spam", "Flagging")));
     root.querySelectorAll("[data-edit]").forEach(btn => btn.addEventListener("click", () => {
       const row = data.reviews.find(r => r.id === btn.dataset.edit);
       if (row) openForm(row);
     }));
-    root.querySelectorAll("[data-del]").forEach(btn => btn.addEventListener("click", () => remove(btn.dataset.del, btn.dataset.name)));
+    root.querySelectorAll("[data-del]").forEach(btn => btn.addEventListener("click", () => remove(btn, btn.dataset.del, btn.dataset.name)));
   }
 
   await load();

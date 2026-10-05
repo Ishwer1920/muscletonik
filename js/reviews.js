@@ -102,24 +102,34 @@
 
   /* ---------- product page ---------- */
 
-  function summaryMarkup(data) {
-    var count = data.count || 0;
-    if (!count) {
-      return '<div class="mt-rv-summary is-empty"><p>No reviews yet. Be the first to rate this product.</p></div>';
+  function summaryMarkup(data, catalogId) {
+    // Headline uses the product's published rating + review count (the same
+    // figures shown on the cards), so the tab never reads "no reviews" for a
+    // product that carries a rating. The per-star breakdown bars are only drawn
+    // from REAL review documents — never fabricated.
+    var prod = (typeof getProductById === "function") ? getProductById(catalogId) : null;
+    var actual = data.count || 0;
+    var average = (prod && Number(prod.rating)) || Number(data.average || 0);
+    var count = (prod && prod.reviews != null && Number(prod.reviews)) || actual;
+    if (!average && !count) {
+      return '<div class="mt-rv-summary is-empty"><p>Reviews for this product will appear here.</p></div>';
     }
-    var bars = "";
-    for (var star = 5; star >= 1; star--) {
-      var n = (data.breakdown && data.breakdown[star]) || 0;
-      var pct = count ? Math.round((n / count) * 100) : 0;
-      bars += '<div class="mt-rv-bar-row"><span>' + star + "★</span>" +
-        '<span class="mt-rv-bar"><i style="width:' + pct + '%"></i></span>' +
-        "<span>" + n + "</span></div>";
+    var score = '<div class="mt-rv-score"><b>' + Number(average || 0).toFixed(1) + "</b>" +
+      starsDisplay(average) +
+      "<span>" + Number(count).toLocaleString("en-IN") + " review" + (count === 1 ? "" : "s") + "</span></div>";
+    var barsBlock = "";
+    if (actual > 0 && data.breakdown) {
+      var bars = "";
+      for (var star = 5; star >= 1; star--) {
+        var n = data.breakdown[star] || 0;
+        var pct = actual ? Math.round((n / actual) * 100) : 0;
+        bars += '<div class="mt-rv-bar-row"><span>' + star + "★</span>" +
+          '<span class="mt-rv-bar"><i style="width:' + pct + '%"></i></span>' +
+          "<span>" + n + "</span></div>";
+      }
+      barsBlock = '<div class="mt-rv-bars">' + bars + "</div>";
     }
-    return '<div class="mt-rv-summary">' +
-      '<div class="mt-rv-score"><b>' + Number(data.average || 0).toFixed(1) + "</b>" +
-      starsDisplay(data.average) +
-      "<span>" + count + " review" + (count === 1 ? "" : "s") + "</span></div>" +
-      '<div class="mt-rv-bars">' + bars + "</div></div>";
+    return '<div class="mt-rv-summary">' + score + barsBlock + "</div>";
   }
 
   function listMarkup(reviews) {
@@ -164,7 +174,7 @@
     fetch(url, { credentials: "include", headers: { Accept: "application/json" } })
       .then(function (res) { return res.json(); })
       .then(function (data) {
-        root.innerHTML = summaryMarkup(data) + listMarkup(data.reviews || []) + formMarkup(data.mine);
+        root.innerHTML = summaryMarkup(data, catalogId) + listMarkup(data.reviews || []) + formMarkup(data.mine);
         wireStars(root);
         var form = document.getElementById("mtReviewForm");
         if (form) {

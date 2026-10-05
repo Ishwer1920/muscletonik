@@ -15,6 +15,11 @@ COUPONS = {
 
 COD_ADVANCE_RATE = 0.2
 
+# Cash on Delivery is free: choosing COD never adds a convenience fee. Kept as a
+# named constant (rather than an inline 0) so the storefront can read it and the
+# intent stays obvious if anyone revisits COD pricing later.
+COD_CHARGE = 0
+
 FREE_SHIPPING_OVER = 599
 SHIPPING_FEE = 79
 
@@ -284,6 +289,42 @@ def effective_price(product):
     except (TypeError, ValueError):
         return selling
     return deal if 0 < deal < selling else selling
+
+
+def find_weight_option(product, label):
+    """The product's weight/pack option whose label matches, or None.
+
+    Matching is case/space-insensitive so "2kg" from the client lines up with a
+    stored "2 KG". Returns None when the product has no options or none match.
+    """
+    options = getattr(product, "weightOptions", None) or []
+    if not options:
+        return None
+    wanted = _norm(label)
+    if not wanted:
+        return None
+    for opt in options:
+        if _norm(getattr(opt, "label", "")).replace(" ", "") == wanted.replace(" ", ""):
+            return opt
+    return None
+
+
+def variant_unit_price(product, label=None):
+    """Unit price for one cart line, honouring the chosen pack/weight.
+
+    A product with weight options is priced from the selected option (or the
+    first option when the client sent nothing), never from a client figure. A
+    product without options falls back to the normal effective price, so every
+    existing single-price product is unaffected.
+    """
+    options = getattr(product, "weightOptions", None) or []
+    if not options:
+        return effective_price(product)
+    chosen = find_weight_option(product, label) or options[0]
+    try:
+        return float(getattr(chosen, "price", 0) or 0)
+    except (TypeError, ValueError):
+        return effective_price(product)
 
 
 # ---------------------------------------------------------------------------

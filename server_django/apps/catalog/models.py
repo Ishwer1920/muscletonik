@@ -10,6 +10,24 @@ class Flavor(me.EmbeddedDocument):
     image = me.StringField()
 
 
+class WeightOption(me.EmbeddedDocument):
+    """One pack/weight a product can be bought in, with its own price.
+
+    Lets a single product carry several sizes (1 KG, 2 KG, 5 KG, ...) that each
+    sell for a different amount. The storefront shows these as a selector and
+    the price follows the chosen pack; checkout re-reads the price from here so
+    the client can never pick its own figure. A product with no options behaves
+    exactly as before, priced off sellingPrice.
+    """
+    label = me.StringField(required=True)          # what the shopper sees, e.g. "2 KG"
+    price = me.FloatField(required=True, min_value=0)  # selling price for this pack
+    mrp = me.FloatField(default=0, min_value=0)        # optional struck-through price
+    # Optional per-pack stock. None means the pack rides on the product's own
+    # stock instead of being tracked separately.
+    stock = me.IntField(null=True, default=None, min_value=0)
+    sku = me.StringField(default="")
+
+
 def _timestamped_save(self, *args, **kwargs):
     now = datetime.now(timezone.utc)
     if not self.createdAt:
@@ -41,6 +59,8 @@ class Product(me.Document):
     images = me.ListField(me.StringField(), default=list)
     galleryImages = me.ListField(me.StringField(), default=list)
     flavors = me.EmbeddedDocumentListField(Flavor, default=list)
+    # Per-pack/weight pricing. Empty = single-price product (uses sellingPrice).
+    weightOptions = me.EmbeddedDocumentListField(WeightOption, default=list)
     mrp = me.FloatField(default=0, min_value=0)
     sellingPrice = me.FloatField(default=0, min_value=0)
     discountPercent = me.FloatField(default=0, min_value=0, max_value=100)

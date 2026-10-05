@@ -5,6 +5,7 @@
 let currentQty = 1;
 let currentProduct = null;
 let currentFlavor = "";
+let currentWeight = "";   // chosen pack label ("2 KG"); "" for single-price products
 let galleryHtml = "";
 let galleryImages = [];
 
@@ -50,6 +51,66 @@ function selectFlavor(index) {
   }
 }
 
+// Render the pack/weight chips for a product. Each option in p.weightOptions
+// carries its own price, so picking a pack re-prices the page immediately. The
+// selector only shows when there is a real choice (2+ options); with one option
+// the pack is still applied so the price reflects it.
+function renderWeights(p) {
+  const field = document.getElementById("weightField");
+  const wrap = document.getElementById("weightOptions");
+  if (!field || !wrap) return;
+  const opts = productWeightOptions(p);
+  currentWeight = opts.length ? opts[0].label : "";
+  if (opts.length < 2) {
+    field.hidden = true;
+    wrap.innerHTML = "";
+    return;
+  }
+  field.hidden = false;
+  wrap.innerHTML = opts.map((o, i) =>
+    '<button type="button" class="weight-chip' + (i === 0 ? " active" : "") + '" onclick="selectWeight(' + i + ')">' +
+      '<span class="weight-label">' + escapeHtml(o.label) + "</span>" +
+      '<span class="weight-price">' + formatINR(Number(o.price) || 0) + "</span>" +
+    "</button>").join("");
+  const picked = document.getElementById("weightPicked");
+  if (picked) picked.textContent = ": " + opts[0].label;
+}
+
+// Pick a pack: highlight it, remember it, and re-price the page.
+function selectWeight(index) {
+  if (!currentProduct) return;
+  const opts = productWeightOptions(currentProduct);
+  const o = opts[index];
+  if (!o) return;
+  currentWeight = o.label;
+  document.querySelectorAll("#weightOptions .weight-chip").forEach((el, i) => el.classList.toggle("active", i === index));
+  const picked = document.getElementById("weightPicked");
+  if (picked) picked.textContent = ": " + o.label;
+  applyWeightPrice();
+}
+
+// Paint the price, old price and discount for the currently selected pack. For
+// a single-price product this just shows p.price / p.oldPrice as before.
+function applyWeightPrice() {
+  const p = currentProduct;
+  if (!p) return;
+  const unit = variantUnitPrice(p, currentWeight);
+  const was = productWeightOptions(p).length ? variantOldPrice(p, currentWeight) : (Number(p.oldPrice) || 0);
+  const nowEl = document.getElementById("pdNow");
+  const wasEl = document.getElementById("pdWas");
+  const offEl = document.getElementById("pdOff");
+  const sticky = document.getElementById("stickyPrice");
+  if (nowEl) nowEl.textContent = formatINR(unit);
+  if (sticky) sticky.textContent = formatINR(unit);
+  if (was > unit) {
+    if (wasEl) { wasEl.textContent = formatINR(was); wasEl.style.display = ""; }
+    if (offEl) { offEl.textContent = discountPct(unit, was) + "% off"; offEl.style.display = ""; }
+  } else {
+    if (wasEl) { wasEl.textContent = ""; wasEl.style.display = "none"; }
+    if (offEl) { offEl.textContent = ""; offEl.style.display = "none"; }
+  }
+}
+
 function renderBenefitList(p) {
   const benefits = [
     `Designed for ${p.category.replace("-", " ")}`,
@@ -83,7 +144,6 @@ function renderProductDetails() {
   // longer exists in the list, so the page still renders instead of crashing.
   const brand = getBrandById(p.brand) || { id: p.brand || "", name: p.brand || "" };
   const category = getCategoryById(p.category);
-  const off = discountPct(p.price, p.oldPrice);
   document.title = p.name + " - Muscle Tonik";
   document.getElementById("breadcrumbCat").textContent = category ? category.name : (p.category || "Category");
   document.getElementById("breadcrumbCat").href = "marketplace.html?category=" + p.category;
@@ -118,11 +178,12 @@ function renderProductDetails() {
     pdSize.hidden = !size;
   }
   document.getElementById("pdStars").innerHTML = starString(p.rating) + " " + p.rating + " • " + p.reviews.toLocaleString("en-IN") + " reviews";
-  document.getElementById("pdNow").textContent = formatINR(p.price);
-  document.getElementById("pdWas").textContent = formatINR(p.oldPrice);
-  document.getElementById("pdOff").textContent = off + "% off";
 
   renderFlavors(p);
+  // Pack/weight selector + initial price. applyWeightPrice() fills pdNow/pdWas/
+  // pdOff for the default pack (or the plain price when there are no packs).
+  renderWeights(p);
+  applyWeightPrice();
   document.getElementById("pdDesc").textContent = p.desc;
   document.getElementById("pdBenefits").innerHTML = renderBenefitList(p);
   document.getElementById("pdIngredients").textContent = p.ingredients;
@@ -142,7 +203,7 @@ function renderProductDetails() {
   wishBtn.setAttribute("data-wish", p.id);
 
   document.getElementById("stickyName").textContent = p.name.split(",")[0];
-  document.getElementById("stickyPrice").textContent = formatINR(p.price);
+  // stickyPrice is kept in sync with the selected pack by applyWeightPrice().
 
   renderRelated(p);
 }
@@ -171,8 +232,8 @@ function renderGalleryImage(p, index) {
   return productImage(p).replace('width="90" height="108"', 'width="230" height="276"');
 }
 
-function addCurrentToCart() { Cart.add(currentProduct.id, currentQty); }
-function buyNow() { Cart.add(currentProduct.id, currentQty); window.location.href = "cart.html"; }
+function addCurrentToCart() { Cart.add(currentProduct.id, currentQty, currentWeight); }
+function buyNow() { Cart.add(currentProduct.id, currentQty, currentWeight); window.location.href = "cart.html"; }
 function toggleCurrentWishlist() { Wishlist.toggle(currentProduct.id); }
 
 function switchTab(name) {

@@ -14,7 +14,6 @@ from apps.core.permissions import RequireAuth
 
 from . import services, validation
 from .mailer import send_mail
-from .sms import send_otp_sms
 from .models import User
 
 
@@ -282,9 +281,11 @@ GENERIC_LOOKUP_FAILURE = (
 
 
 def _otp_debug(body, code):
-    """Outside production the code is echoed back so the flow can be tested
-    without a working mail server or SMS account. Never in production."""
-    if not mt_env.IS_PRODUCTION:
+    """Echo the code on screen ONLY in development AND ONLY when real delivery
+    failed. With email working the shopper now gets the code from their inbox
+    (the real-life behaviour); a broken mailbox still leaves the flow testable.
+    Never echoed in production."""
+    if not mt_env.IS_PRODUCTION and not body.get("delivered"):
         body["devCode"] = code
     return body
 
@@ -341,23 +342,20 @@ def forgot_password_send_otp(request):
     code = issued["otp"]
     minutes = issued["expiresInMinutes"]
 
-    if channel == "sms":
-        delivered = send_otp_sms(user.phone, code, minutes)
-        sent_to = "your mobile number ending " + issued["destination"][-4:]
-    else:
-        delivered = send_mail(
-            user.email,
-            "Your Muscle Tonik password reset code",
-            "<p>Hi " + (user.name or "there") + ",</p>"
-            "<p>Your password reset code is:</p>"
-            '<p style="font-size:26px;font-weight:700;letter-spacing:4px;">' + code + "</p>"
-            "<p>It expires in " + str(minutes) + " minutes. If you did not request this, "
-            "you can ignore this email.</p>",
-        )
-        sent_to = issued["destination"]
+    # Email is the only channel now.
+    delivered = send_mail(
+        user.email,
+        "Your Muscle Tonik password reset code",
+        "<p>Hi " + (user.name or "there") + ",</p>"
+        "<p>Your password reset code is:</p>"
+        '<p style="font-size:26px;font-weight:700;letter-spacing:4px;">' + code + "</p>"
+        "<p>It expires in " + str(minutes) + " minutes. If you did not request this, "
+        "you can ignore this email.</p>",
+    )
+    sent_to = issued["destination"]
 
     body = {
-        "channel": channel,
+        "channel": issued["channel"],
         "destination": issued["destination"],
         "expiresInMinutes": minutes,
         "resendAfterSeconds": issued["resendAfterSeconds"],
@@ -396,3 +394,78 @@ def forgot_password_verify_otp(request):
         "message": "Code verified. Choose a new password.",
         "resetToken": token,
     })
+
+
+# ---------------------------------------------------------------------------
+# Passwordless OTP login / signup: request a code -> verify -> signed in
+# ---------------------------------------------------------------------------
+
+def _otp_identifier(request):
+    return (
+        request.data.get("identifier")
+        or request.data.get("email")
+        or request.data.get("phone")
+        or ""
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def auth_otp_request(request):
+    """Send a login/signup code to the email or mobile the shopper typed."""
+    issued = services.request_login_otp(_otp_identifier(request), request.data.get("name") or "")
+    code = issued["otp"]
+    minutes = issued["expiresInMinutes"]
+
+    # Email is the only channel now.
+    verb = "Sign in to" if issued["purpose"] == "login" else "Finish creating your"
+    delivered = send_mail(
+        issued["rawDestination"],
+        "Your Muscle Tonik verification code",
+        "<p>Hi,</p><p>" + verb + " Muscle Tonik account with this code:</p>"
+        '<p style="font-size:26px;font-weight:700;letter-spacing:4px;">' + code + "</p>"
+        "<p>It expires in " + str(minutes) + " minutes. If you did not request this, "
+        "you can ignore this email.</p>",
+    )
+    sent_to = issued["destination"]
+
+    body = {
+        "channel": issued["channel"],
+        "destination": issued["destination"],
+        "purpose": issued["purpose"],
+        "expiresInMinutes": minutes,
+        "resendAfterSeconds": issued["resendAfterSeconds"],
+        "delivered": bool(delivered),
+    }
+    if not delivered:
+        body["message"] = (
+            "We couldn't send the code right now. Please try again, or use the other option."
+        )
+        return Response(_otp_debug(body, code), status=502)
+
+    body["message"] = "We've sent a code to " + sent_to + "."
+    return Response(_otp_debug(body, code))
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def auth_otp_verify(request):
+    """Verify the code and sign the shopper in (creating the account if new)."""
+    code = str(request.data.get("code") or "").strip()
+    if not code:
+        return _validation_response([{"msg": "Enter the code you received.", "param": "code"}])
+
+    result = services.verify_login_otp(
+        _otp_identifier(request),
+        code,
+        request.data.get("name") or "",
+        request.data.get("rememberMe", False),
+    )
+    message = "Account created — you're signed in." if result.get("created") else "Logged in"
+    response = Response({
+        "message": message,
+        "user": result["user"],
+        "created": bool(result.get("created")),
+    })
+    set_auth_cookies(response, result["accessToken"], result["refreshToken"])
+    return response

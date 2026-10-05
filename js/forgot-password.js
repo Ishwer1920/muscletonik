@@ -29,7 +29,7 @@
   };
 
   var COPY = {
-    1: ["Reset your password", "Enter the email address or mobile number you signed up with."],
+    1: ["Reset your password", "Enter the email address you signed up with."],
     2: ["Where should we send it?", "Pick how you want to receive your one-time verification code."],
     3: ["Enter your code", "It is valid for a few minutes only."],
     4: ["Choose a new password", "Pick something you have not used here before."]
@@ -86,7 +86,12 @@
     }).then(function (data) {
       state.identifier = identifier;
       state.channels = data.channels || [];
-      state.channel = state.channels.length ? state.channels[0].id : "";
+      state.channel = state.channels.length ? state.channels[0].id : "email";
+      // Email is the only channel now, so skip the "where should we send it?"
+      // step and mail the code straight away.
+      if (state.channels.length <= 1) {
+        return sendCode();
+      }
       renderChannels();
       showStep(2);
     });

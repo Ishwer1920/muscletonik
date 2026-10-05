@@ -103,3 +103,30 @@ class User(me.Document):
             "role": self.role,
             "emailVerified": self.emailVerified,
         }
+
+
+class OtpSession(me.Document):
+    """A one-time code for passwordless login or signup, keyed by the contact
+    (email or 10-digit mobile) the shopper is proving control of.
+
+    Kept in its own collection rather than on the User, because a signup code
+    has to exist *before* any User row does, and so it never collides with the
+    forgot-password code embedded on the User (passwordResetOtp)."""
+
+    identifier = me.StringField(required=True, unique=True)  # normalized email / phone
+    channel = me.StringField(choices=["email", "sms"], default="email")
+    destination = me.StringField(default="")                 # masked, safe to echo
+    purpose = me.StringField(choices=["login", "signup"], default="login")
+    name = me.StringField(default="")                        # captured for a new signup
+    codeHash = me.StringField(required=True)
+    expiresAt = me.DateTimeField()
+    attempts = me.IntField(default=0)
+    resendCount = me.IntField(default=0)
+    lastSentAt = me.DateTimeField()
+    createdAt = me.DateTimeField()
+
+    meta = {
+        "collection": "otpsessions",
+        "indexes": ["identifier"],
+        "strict": False,
+    }

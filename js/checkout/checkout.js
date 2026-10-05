@@ -106,7 +106,7 @@
     var advance = Math.round(total * 0.2);
     var balance = total - advance;
     els.codDesc.textContent =
-      "Pay " + utils.formatCurrency(advance) + " online now to confirm, " +
+      "No COD fee — it's free. Pay " + utils.formatCurrency(advance) + " online now to confirm, " +
       utils.formatCurrency(balance) + " in cash on delivery.";
   }
 
@@ -146,7 +146,7 @@
       // so the success screen knows whether to offer downloads.
       plans: (serverResult && serverResult.plans) || [],
       items: state.items.map(function (i) {
-        return { id: i.id, name: i.name, qty: i.qty, unitPrice: i.unitPrice, lineTotal: i.lineTotal, imageUrl: i.imageUrl, color: i.color };
+        return { id: i.id, name: i.name, qty: i.qty, weight: i.weight || "", weightLabel: i.weightLabel || "", unitPrice: i.unitPrice, lineTotal: i.lineTotal, imageUrl: i.imageUrl, color: i.color };
       }),
       summary: state.summary,
       customer: {

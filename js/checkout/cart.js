@@ -36,6 +36,17 @@ window.MTCheckout.cart = (function () {
     var product = typeof getProductById === "function" ? getProductById(id) : null;
     if (!product) return null;
 
+    // The chosen pack/weight ("2 KG"), and its price read from the product's
+    // own weightOptions — never a client figure, mirroring the server. A
+    // product without packs keeps product.price unchanged.
+    var weight = row && row.weight ? String(row.weight) : "";
+    var unitPrice = typeof variantUnitPrice === "function"
+      ? variantUnitPrice(product, weight)
+      : utils.toNumber(product.price);
+    var weightLabel = typeof resolveWeightLabel === "function"
+      ? resolveWeightLabel(product, weight)
+      : "";
+
     var imageUrl = Array.isArray(product.images) && product.images.length ? product.images[0] : "";
     return {
       id: id,
@@ -46,7 +57,9 @@ window.MTCheckout.cart = (function () {
       imageUrl: imageUrl,
       color: product.color || "#ff7a00",
       qty: Math.max(1, Math.round(Number.isFinite(qty) ? qty : 1)),
-      unitPrice: utils.toNumber(product.price),
+      weight: weight,
+      weightLabel: weightLabel,
+      unitPrice: utils.toNumber(unitPrice),
       oldPrice: utils.toNumber(product.oldPrice),
       // null = no override; the store default from Admin -> Tax & GST applies.
       gstRate: product.gstRate == null || product.gstRate === "" ? null : utils.toNumber(product.gstRate),
@@ -70,9 +83,10 @@ window.MTCheckout.cart = (function () {
     raw.forEach(function (row) {
       var item = toLineItem(row);
       if (!item) return;
-      // Keyed by product AND combo: the same product on its own and inside a
-      // bundle are separate lines, because only one of them is combo-priced.
-      var key = item.id + "|" + (item.comboId || "");
+      // Keyed by product AND combo AND pack: the same product on its own and
+      // inside a bundle are separate lines (only one is combo-priced), and two
+      // different packs of the same product are separate lines too.
+      var key = item.id + "|" + (item.comboId || "") + "|" + (item.weight || "");
       if (byKey[key]) {
         byKey[key].qty += item.qty;
       } else {
@@ -110,7 +124,7 @@ window.MTCheckout.cart = (function () {
       credentials: "include",
       body: JSON.stringify({
         couponCode: normalized,
-        items: items.map(function (i) { return { id: i.id, qty: i.qty, comboId: i.comboId || null }; })
+        items: items.map(function (i) { return { id: i.id, qty: i.qty, comboId: i.comboId || null, weight: i.weight || "" }; })
       })
     }).then(function (res) {
       return res.json().catch(function () { return {}; });
