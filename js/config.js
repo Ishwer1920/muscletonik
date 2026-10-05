@@ -1,11 +1,12 @@
-// The deployed frontend talks to the production API. Local dev must NOT: the
-// prod API sends no Access-Control-Allow-Origin for a localhost page, so the
-// browser blocks every response — hydrateCatalogFromApi() swallows the error
-// and falls back to the 22-product seed list in data.js (no images, no auth).
-// Leaving the override unset on localhost lets data.js auto-detect the backend
-// on port 4000, which does send the right CORS headers.
+// Frontend + API are served from the SAME origin in production: the Django app
+// serves both the HTML pages and the /api on one domain (VPS deploy), so no
+// override is needed — getApiBase() falls through to window.location.origin +
+// "/api" automatically. On localhost the override also stays unset, so data.js
+// auto-detects the backend on port 4000.
+//
+// To split the API onto a different host instead (e.g. frontend on one domain,
+// API on another), set the override below to that URL, e.g.:
+//   if (location.hostname !== "localhost") window.MT_API_BASE_OVERRIDE = "https://api.example.com/api";
 (function () {
-  var host = location.hostname;
-  var isLocal = host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "";
-  if (!isLocal) window.MT_API_BASE_OVERRIDE = "https://api.muscletonik.com/api";
+  // same-origin by default — nothing to force.
 })();
