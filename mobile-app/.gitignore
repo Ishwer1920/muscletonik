@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Capacitor / Android build output
+android/app/build/
+android/build/
+android/.gradle/
+android/captures/
+android/local.properties
+build-output/
+*.apk
+*.aab
+
+# ---- SIGNING SECRETS — never commit these ----
+*.keystore
+*.jks
+keystore.properties
+android/keystore.properties
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

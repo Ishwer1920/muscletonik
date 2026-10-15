@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light" />
+<title>Muscle Tonik — No connection</title>
+<style>
+  :root { --primary:#ff7a00; --primary-dark:#e66700; --dark:#111; --text:#222; --muted:#6f6f6f; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body {
+    font-family:-apple-system,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+    color:var(--text); background:#fff;
+    display:flex; align-items:center; justify-content:center;
+    padding:max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { width:100%; max-width:360px; text-align:center; }
+  .mark {
+    width:76px; height:76px; margin:0 auto 22px; border-radius:20px;
+    background:linear-gradient(135deg,#fff3e8,#ffe4cc);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 28px -12px rgba(255,122,0,.5);
+  }
+  .mark svg { width:40px; height:40px; }
+  h1 { font-size:21px; margin:0 0 8px; color:var(--dark); letter-spacing:-.01em; }
+  p { font-size:14.5px; line-height:1.6; color:var(--muted); margin:0 0 26px; }
+  button {
+    appearance:none; border:0; cursor:pointer;
+    background:var(--primary); color:#fff; font-size:15px; font-weight:700;
+    padding:14px 28px; border-radius:999px; width:100%;
+    box-shadow:0 12px 26px -12px rgba(255,122,0,.65);
+    transition:transform .15s ease, background .15s ease;
+  }
+  button:active { transform:translateY(1px); background:var(--primary-dark); }
+  .hint { margin-top:16px; font-size:12.5px; color:#9a9a9a; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#ff7a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6.5 6.5l11 11" /><path d="M4 8l-1 1a2 2 0 0 0 0 3l1 1" />
+        <path d="M8 4l-1 1" /><path d="M20 16l1-1a2 2 0 0 0 0-3l-1-1" /><path d="M16 20l1-1" />
+        <path d="M5 5l2 2" /><path d="M17 17l2 2" />
+      </svg>
+    </div>
+    <h1>You're offline</h1>
+    <p>Muscle Tonik needs an internet connection to load the latest products, prices and your account. Check your connection and try again.</p>
+    <button id="retry" type="button">Try again</button>
+    <div class="hint">muscletonik.com</div>
+  </div>
+<script>
+  document.getElementById("retry").addEventListener("click", function () {
+    // Navigate the WebView back to the live storefront. If still offline,
+    // Capacitor re-serves this page (server.errorPath), so the loop is safe.
+    window.location.href = "https://muscletonik.com";
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "name": "muscle-tonik-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Muscle Tonik Android app — a Capacitor native shell around the live muscletonik.com storefront.",
+  "author": "Muscle Tonik",
+  "license": "UNLICENSED",
+  "scripts": {
+    "sync": "cap sync android",
+    "copy": "cap copy android",
+    "open:android": "cap open android",
+    "icons": "capacitor-assets generate --android",
+    "build:debug": "cd android && gradlew.bat assembleDebug",
+    "build:release": "cd android && gradlew.bat bundleRelease",
+    "clean": "cd android && gradlew.bat clean"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5"
+  }
+}
