@@ -1,0 +1,51 @@
+{
+  "appId": "com.muscletonik.app",
+  "appName": "Muscle Tonik",
+  "webDir": "www",
+  "loggingBehavior": "none",
+  "server": {
+    "url": "https://muscletonik.com",
+    "cleartext": false,
+    "androidScheme": "https",
+    "errorPath": "offline.html",
+    "allowNavigation": [
+      "muscletonik.com",
+      "www.muscletonik.com",
+      "api.muscletonik.com",
+      "*.muscletonik.com",
+      "checkout.razorpay.com",
+      "api.razorpay.com",
+      "*.razorpay.com",
+      "*.rzp.io",
+      "*.google.com",
+      "*.googleapis.com",
+      "*.gstatic.com",
+      "*.googletagmanager.com",
+      "*.google-analytics.com",
+      "connect.facebook.net",
+      "www.facebook.com"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1400,
+      "launchAutoHide": true,
+      "backgroundColor": "#ffffff",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_INSIDE",
+      "showSpinner": true,
+      "spinnerStyle": "small",
+      "spinnerColor": "#ff7a00"
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "LIGHT",
+      "backgroundColor": "#ffffff"
+    }
+  }
+}
