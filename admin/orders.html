@@ -42,6 +42,9 @@
   /* Image lightbox — a small centred popup over the same page. */
   .ord-lightbox { position:fixed; inset:0; z-index:9999; display:flex;
     align-items:center; justify-content:center; padding:20px; }
+  /* Must beat the display:flex above so the close button actually hides it
+     (the `hidden` attribute alone loses to the class rule's specificity). */
+  .ord-lightbox[hidden] { display:none; }
   .ord-lb-backdrop { position:absolute; inset:0; background:rgba(10,10,12,.82); }
   .ord-lb-dialog { position:relative; z-index:1; display:grid;
     grid-template-columns:auto 1fr auto; grid-template-rows:1fr auto; gap:12px;
