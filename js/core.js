@@ -322,21 +322,28 @@ const Cart = {
   // (only the tagged one is combo-priced), and the same product in two
   // different packs (1 KG vs 2 KG) are two separate lines priced from each
   // pack's own figure.
-  key(id, comboId, weight) { return Number(id) + "|" + (comboId || "") + "|" + (weight || ""); },
-  find(items, id, comboId, weight) {
-    return items.find(i => this.key(i.id, i.comboId, i.weight) === this.key(id, comboId, weight));
+  // A line is identified by product AND combo AND pack/weight AND flavour, so
+  // the same product in two flavours (or two packs) are separate cart lines.
+  key(id, comboId, weight, flavor) {
+    return Number(id) + "|" + (comboId || "") + "|" + (weight || "") + "|" + (flavor || "");
+  },
+  find(items, id, comboId, weight, flavor) {
+    return items.find(i => this.key(i.id, i.comboId, i.weight, i.flavor) === this.key(id, comboId, weight, flavor));
   },
   // weight is the chosen pack label ("2 KG"); "" for a single-price product.
-  add(id, qty, weight, comboId) {
+  // flavor is the chosen flavour name ("Chocolate"); "" when none was picked.
+  add(id, qty, weight, comboId, flavor) {
     qty = qty || 1;
     weight = weight || "";
+    flavor = flavor || "";
     const items = this.items();
-    const found = this.find(items, id, comboId, weight);
+    const found = this.find(items, id, comboId, weight, flavor);
     if (found) found.qty += qty;
     else {
       const row = { id: Number(id), qty };
       if (comboId) row.comboId = comboId;
       if (weight) row.weight = weight;
+      if (flavor) row.flavor = flavor;
       items.push(row);
     }
     this.save(items);
@@ -356,9 +363,9 @@ const Cart = {
     this.save(items);
     showToast("Combo added to cart");
   },
-  remove(id, comboId, weight) {
-    const key = this.key(id, comboId, weight);
-    this.save(this.items().filter(i => this.key(i.id, i.comboId, i.weight) !== key));
+  remove(id, comboId, weight, flavor) {
+    const key = this.key(id, comboId, weight, flavor);
+    this.save(this.items().filter(i => this.key(i.id, i.comboId, i.weight, i.flavor) !== key));
     showToast("Removed from cart");
   },
   // Drop a whole bundle at once, from the cart's combo header.
@@ -367,9 +374,9 @@ const Cart = {
     this.save(this.items().filter(i => (i.comboId || "") !== comboId));
     showToast("Combo removed");
   },
-  setQty(id, qty, comboId, weight) {
+  setQty(id, qty, comboId, weight, flavor) {
     const items = this.items();
-    const found = this.find(items, id, comboId, weight);
+    const found = this.find(items, id, comboId, weight, flavor);
     if (found) {
       found.qty = Math.max(1, qty);
       this.save(items);
@@ -396,6 +403,7 @@ const Cart = {
         comboId: item.comboId || null,
         weight: weight,
         weightLabel: resolveWeightLabel(product, weight),
+        flavor: item.flavor || "",
         unitPrice: unitPrice,
         oldUnitPrice: variantOldPrice(product, weight),
         product: product,
@@ -675,12 +683,10 @@ function icon(name, size) {
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || "") + "</svg>";
 }
 
-function productImage(p) {
-  const imageUrl = Array.isArray(p.images) && p.images.length ? p.images[0] : "";
-  if (imageUrl) {
-    return '<img src="' + escapeHtml(imageUrl) + '" alt="' + escapeHtml(p.name || "Product") + '" loading="lazy">';
-  }
-  const tone = p.color || "#ff7a00";
+// The branded product silhouette used both as the no-photo placeholder and as
+// the graceful fallback when a real photo 404s (see mtProdImgFail).
+function productSilhouette(tone) {
+  tone = tone || "#ff7a00";
   return '<svg width="90" height="108" viewBox="0 0 90 108" aria-hidden="true">' +
     '<rect x="20" y="14" width="50" height="80" rx="14" fill="' + tone + '"/>' +
     '<rect x="30" y="4" width="30" height="16" rx="6" fill="#111111"/>' +
@@ -690,17 +696,54 @@ function productImage(p) {
     "</svg>";
 }
 
-// Merchandising badges on a product card. Ordered by how much they should
-// pull the eye, and capped at the two that matter so a card never turns into
-// a wall of pills.
-function productFlagBadges(p) {
+function productImage(p) {
+  const imageUrl = Array.isArray(p.images) && p.images.length ? p.images[0] : "";
+  const tone = p.color || "#ff7a00";
+  if (imageUrl) {
+    // A dead photo URL must never leave a broken-image icon: on error, swap the
+    // <img> for the branded silhouette in the same tone.
+    return '<img src="' + escapeHtml(imageUrl) + '" alt="' + escapeHtml(p.name || "Product") +
+      '" loading="lazy" data-tone="' + escapeHtml(tone) + '" onerror="mtProdImgFail(this)">';
+  }
+  return productSilhouette(tone);
+}
+
+// A product-like object whose first image is the chosen flavour's photo, so a
+// thumbnail shows exactly the variant the shopper picked. Returns the product
+// unchanged when there is no flavour or that flavour has no image of its own.
+function flavorView(p, flavor) {
+  if (!p || !flavor || !Array.isArray(p.flavors)) return p;
+  const match = p.flavors.find(f => f && f.name && f.name.toLowerCase() === String(flavor).toLowerCase());
+  if (!match || !match.image) return p;
+  const rest = Array.isArray(p.images) ? p.images.filter(u => u !== match.image) : [];
+  return Object.assign({}, p, { images: [match.image].concat(rest) });
+}
+
+// A product photo failed to load — replace it with the silhouette once.
+function mtProdImgFail(img) {
+  if (!img || img.dataset.failed) return;
+  img.dataset.failed = "1";
+  img.outerHTML = productSilhouette(img.getAttribute("data-tone"));
+}
+
+// Merchandising badges on a product card, in priority order and capped at the
+// two that matter so a card never turns into a wall of pills. Priority puts the
+// strongest commercial signal first: a Crazy Deal, then the discount, then
+// urgency (near-expiry), then "new", then any admin free-text badge. The admin
+// "Deal" badge is dropped when a "% OFF" is already shown — they say the same
+// thing.
+function productFlagBadges(p, off) {
   const out = [];
   if (p.crazyDeal) out.push('<span class="badge badge-crazy">CRAZY DEAL</span>');
-  if (p.newArrival) out.push('<span class="badge badge-new">NEW</span>');
+  if (off > 0) out.push('<span class="badge badge-orange">' + off + '% OFF</span>');
   if (p.nearExpiry) {
     const days = Number(p.daysToExpiry);
     out.push('<span class="badge badge-expiry">' +
       (isFinite(days) && days > 0 ? "EXPIRES IN " + days + "D" : "NEAR EXPIRY") + "</span>");
+  }
+  if (p.newArrival) out.push('<span class="badge badge-new">NEW</span>');
+  if (p.badge && !/^deals?$/i.test(String(p.badge).trim())) {
+    out.push('<span class="badge badge-dark">' + escapeHtml(p.badge) + "</span>");
   }
   return out.slice(0, 2).join("");
 }
@@ -843,7 +886,7 @@ function renderProductCard(p) {
   return (
     '<div class="prod-card reveal">' +
       '<a class="prod-media" style="background:' + p.color + '18" href="product.html?id=' + p.id + '">' +
-        '<div class="badges">' + productFlagBadges(p) + (off > 0 ? '<span class="badge badge-orange">' + off + '% OFF</span>' : "") + (p.badge ? '<span class="badge badge-dark">' + p.badge + "</span>" : "") + "</div>" +
+        '<div class="badges">' + productFlagBadges(p, off) + "</div>" +
         '<button class="prod-wish' + (wished ? " active" : "") + '" data-wish="' + p.id + '" onclick="event.preventDefault();Wishlist.toggle(' + p.id + ')" aria-label="Toggle wishlist">' + icon("heart", 17) + "</button>" +
         '<div class="prod-media-art">' + productImage(p) + "</div>" +
       "</a>" +
@@ -1075,8 +1118,8 @@ function headerHTML() {
       </div>
       <div class="header-actions">
         <a class="act" href="login.html" id="headerAuthLink">${icon("adduser", 20)}Login</a>
-        <a class="act" href="wishlist.html">${icon("wishlistdoc", 20)}<span class="count wish-count" hidden>0</span><span class="act-label">Wishlist</span></a>
-        <a class="act" href="cart.html" id="cartTriggerBtn" onclick="event.preventDefault();openCartDrawer();">${icon("carttag", 20)}<span class="count cart-count" hidden>0</span><span class="act-label">Cart</span></a>
+        <a class="act" href="wishlist.html">${icon("heart", 20)}<span class="count wish-count" hidden>0</span><span class="act-label">Wishlist</span></a>
+        <a class="act" href="cart.html" id="cartTriggerBtn" onclick="event.preventDefault();openCartDrawer();">${icon("cart", 20)}<span class="count cart-count" hidden>0</span><span class="act-label">Cart</span></a>
         <div class="act act-notif" id="notifWrap">
           <button type="button" class="act-notif-btn" id="notifBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications" onclick="toggleNotifMenu(event)">${icon("alertbell", 20)}<span class="count notif-count" id="notifCount" hidden>0</span><span class="act-label">Alerts</span></button>
           <div class="notif-menu" id="notifMenu" role="menu" aria-label="Notifications"></div>
@@ -1289,85 +1332,98 @@ function toggleNotifMenu(e) {
 function mtRgbConfig() {
   var c = window.MT_SHARED_CATALOG || {};
   var cfg = c.rgbLight;
-  if (cfg && typeof cfg === "object" && Object.keys(cfg).length) return cfg;
-  var sg = c.searchGlow || {};   // back-compat: map the old search-glow shape
-  return {
-    enabled: sg.enabled,
-    mode: sg.style === "single" ? "single" : "rgb",
-    color1: sg.color1, color2: sg.color2, color3: sg.color3,
-    speed: sg.speed, intensity: sg.glowIntensity,
-    targets: { search: true, nav: true, top: false, text: false },
-    desktop: sg.desktop, mobile: sg.mobile, schedule: {}
-  };
-}
-function mtPad2(n) { return (n < 10 ? "0" : "") + n; }
-function mtLocalDate(d) { return d.getFullYear() + "-" + mtPad2(d.getMonth() + 1) + "-" + mtPad2(d.getDate()); }
-function mtToMin(hhmm) { var m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
-function rgbScheduleActive(sch) {
-  if (!sch || !sch.enabled) return true;
-  var now = new Date();
-  if (sch.dateFrom || sch.dateTo) {
-    var today = mtLocalDate(now);
-    if (sch.dateFrom && today < sch.dateFrom) return false;
-    if (sch.dateTo && today > sch.dateTo) return false;
-  }
-  var s = mtToMin(sch.start), e = mtToMin(sch.end);
-  if (s != null && e != null && s !== e) {
-    var cur = now.getHours() * 60 + now.getMinutes();
-    if (s < e) { if (cur < s || cur >= e) return false; }
-    else { if (cur < s && cur >= e) return false; }   // overnight window
-  }
-  return true;
+  return (cfg && typeof cfg === "object") ? cfg : {};
 }
 
+// Festival Lights is a single on/off toggle. When enabled, draw the draped
+// golden garland; when off (or unset), clear everything this feature — and the
+// retired rgb / single / neon modes — may have left on the page.
 function applyRgbLight() {
   var body = document.body; if (!body) return;
-  var root = document.documentElement;
-  var cfg = mtRgbConfig() || {};
-  var mode = cfg.mode || "rgb";
-  var enabled = cfg.enabled !== false && cfg.enabled !== "false";
-  var active = enabled && mode !== "off" && rgbScheduleActive(cfg.schedule);
-  var wraps = document.querySelectorAll(".header-search-wrap");
-
   ["rgb-on", "rgb-mode-rgb", "rgb-mode-single", "rgb-mode-festival",
    "rgb-search", "rgb-nav", "rgb-top", "rgb-text", "rgb-desktop", "rgb-mobile",
-   "mt-glow-desktop", "mt-glow-mobile"].forEach(function (k) { body.classList.remove(k); });
-  wraps.forEach(function (w) { w.classList.remove("mt-glow"); });
-  if (!active) return;
+   "mt-glow-desktop", "mt-glow-mobile",
+   "fl-on", "fl-navbar", "fl-topstrip", "fl-brand", "fl-search", "fl-desktop", "fl-mobile"]
+    .forEach(function (k) { body.classList.remove(k); });
+  mtRemoveFestivalStrings();
+  document.querySelectorAll(".header-search-wrap").forEach(function (w) { w.classList.remove("mt-glow"); });
 
-  var c1 = cfg.color1 || "#ff7a00";
-  var c2 = mode === "single" ? c1 : (cfg.color2 || "#9b5cff");
-  var c3 = mode === "single" ? c1 : (cfg.color3 || "#2bb8ff");
-  var speed = ({ slow: "9s", medium: "6s", fast: "3.5s" })[cfg.speed] || "6s";
-  var intensity = Math.max(0, Math.min(100, Number(cfg.intensity != null ? cfg.intensity : 50)));
-  root.style.setProperty("--glow-c1", c1);
-  root.style.setProperty("--glow-c2", c2);
-  root.style.setProperty("--glow-c3", c3);
-  root.style.setProperty("--glow-speed", speed);
-  root.style.setProperty("--rgb-speed", speed);
-  root.style.setProperty("--glow-amb", (intensity / 100 * 0.6).toFixed(3));
-  root.style.setProperty("--glow-border", Math.max(0.3, intensity / 100).toFixed(3));
-  root.style.setProperty("--rgb-amb", (intensity / 100).toFixed(3));
-
-  body.classList.add("rgb-on");
-  body.classList.add(mode === "festival" ? "rgb-mode-festival" : (mode === "single" ? "rgb-mode-single" : "rgb-mode-rgb"));
-  var t = cfg.targets || { search: true, nav: true };
-  var desk = cfg.desktop !== false && cfg.desktop !== "false";
-  var mob = cfg.mobile !== false && cfg.mobile !== "false";
-  if (desk) body.classList.add("rgb-desktop");
-  if (mob) body.classList.add("rgb-mobile");
-  if (t.search !== false) {
-    body.classList.add("rgb-search");
-    if (desk) body.classList.add("mt-glow-desktop");
-    if (mob) body.classList.add("mt-glow-mobile");
-    wraps.forEach(function (w) { w.classList.add("mt-glow"); });
-  }
-  if (t.nav) body.classList.add("rgb-nav");
-  if (t.top) body.classList.add("rgb-top");
-  if (t.text) body.classList.add("rgb-text");
+  var cfg = mtRgbConfig() || {};
+  var enabled = cfg.enabled !== false && cfg.enabled !== "false";
+  if (!enabled) return;
+  applyFestivalGarland(cfg);
 }
-// Kept so any older caller still works.
-function applySearchGlow() { applyRgbLight(); }
+
+/* ===========================================================
+   FESTIVAL LIGHTS — the draped golden fairy-light garland shown by
+   the RGB Light card's "Festival lights" mode (Admin -> Settings ->
+   RGB Light -> Mode: Festival lights). applyRgbLight() calls
+   applyFestivalGarland() for that mode. All drawing is CSS; this
+   only toggles body.fl-* classes, writes --fl-* custom properties
+   and drops a decorative .fl-string garland overlay into the navbar
+   / top strip. The RGB Light "Apply to" boxes map onto areas:
+   Nav icons -> navbar garland + icon glow, Top strip -> top-strip
+   garland, Brand text -> logo frame, Search bar -> search-bar glow.
+   =========================================================== */
+function mtRemoveFestivalStrings() {
+  document.querySelectorAll(".fl-string").forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+}
+function mtAddFestivalString(parent) {
+  if (!parent) return;
+  var s = document.createElement("div");
+  s.className = "fl-string";
+  s.setAttribute("aria-hidden", "true");
+  parent.appendChild(s);
+}
+// Degrees to rotate the gold garland's hue so it takes on the admin's Colour 1
+// (≈0deg keeps it warm gold for an orange colour).
+function mtFestivalHue(hex) {
+  var m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || "").trim());
+  if (!m) return 0;
+  var h = m[1];
+  var r = parseInt(h.slice(0, 2), 16) / 255, g = parseInt(h.slice(2, 4), 16) / 255, b = parseInt(h.slice(4, 6), 16) / 255;
+  var max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d === 0) return 0;
+  var hue;
+  if (max === r) hue = ((g - b) / d) % 6;
+  else if (max === g) hue = (b - r) / d + 2;
+  else hue = (r - g) / d + 4;
+  hue = hue * 60; if (hue < 0) hue += 360;
+  var rot = hue - 40;               // the gold bulbs sit around 40°
+  while (rot > 180) rot -= 360;
+  while (rot < -180) rot += 360;
+  return Math.round(rot);
+}
+// Apply the garland for RGB Light's "Festival lights" mode. applyRgbLight() has
+// already cleared prior classes/overlays and checked the effect is active
+// (enabled, mode, schedule).
+function applyFestivalGarland(cfg) {
+  var body = document.body; if (!body) return;
+  var root = document.documentElement;
+  var t = (cfg.targets && typeof cfg.targets === "object") ? cfg.targets : {};
+  var isOn = function (v) { return v === true || v === "true"; };
+  // Festival on but nothing ticked -> show the primary effect (navbar + top
+  // strip) rather than nothing.
+  var any = isOn(t.search) || isOn(t.nav) || isOn(t.top) || isOn(t.text);
+  var nav = any ? isOn(t.nav) : true;
+  var top = any ? isOn(t.top) : true;
+  var brand = isOn(t.text);
+  var search = isOn(t.search);
+
+  var SPEEDS = { slow: "10s", medium: "7s", fast: "4.5s" };
+  var intensity = Math.max(0, Math.min(100, Number(cfg.intensity != null ? cfg.intensity : 60)));
+  root.style.setProperty("--fl-speed", SPEEDS[cfg.speed] || "7s");
+  root.style.setProperty("--fl-amb", (0.4 + intensity / 100 * 0.6).toFixed(3));
+  root.style.setProperty("--fl-hue", mtFestivalHue(cfg.color1) + "deg");
+
+  body.classList.add("fl-on");
+  if (cfg.desktop !== false && cfg.desktop !== "false") body.classList.add("fl-desktop");
+  if (cfg.mobile !== false && cfg.mobile !== "false") body.classList.add("fl-mobile");
+  if (nav) { body.classList.add("fl-navbar"); mtAddFestivalString(document.querySelector("header.site")); }
+  if (top) { body.classList.add("fl-topstrip"); mtAddFestivalString(document.querySelector(".topbar")); }
+  if (brand) body.classList.add("fl-brand");
+  if (search) body.classList.add("fl-search");
+}
 
 /* ===========================================================
    Important Alert popup. A published alert with important=true
@@ -1671,32 +1727,35 @@ function renderCartDrawer() {
     const p = getProductById(i.id);
     if (!p) return "";
     const weight = i.weight || "";
+    const flavor = i.flavor || "";
     const unit = variantUnitPrice(p, weight);
     const label = resolveWeightLabel(p, weight);
     const cArg = i.comboId ? "'" + escapeHtml(i.comboId) + "'" : "null";
     const wArg = "'" + escapeHtml(weight) + "'";
+    const fArg = "'" + escapeHtml(flavor) + "'";
+    const variantBits = [flavor, label].filter(Boolean).map(escapeHtml).join(" · ");
     return '<div class="drawer-item">' +
-      '<div class="drawer-thumb" style="background:' + p.color + '18">' + productImage(p) + "</div>" +
+      '<div class="drawer-thumb" style="background:' + p.color + '18">' + productImage(flavorView(p, flavor)) + "</div>" +
       '<div class="drawer-info">' +
         "<h5>" + p.name + "</h5>" +
-        (label ? '<span class="drawer-variant">' + escapeHtml(label) + "</span>" : "") +
+        (variantBits ? '<span class="drawer-variant">' + variantBits + "</span>" : "") +
         '<span class="drawer-price">' + formatINR(unit) + "</span>" +
         '<div class="qty-box sm">' +
-          '<button onclick="drawerChangeQty(' + p.id + ",-1," + cArg + "," + wArg + ')" aria-label="Decrease quantity">-</button>' +
+          '<button onclick="drawerChangeQty(' + p.id + ",-1," + cArg + "," + wArg + "," + fArg + ')" aria-label="Decrease quantity">-</button>' +
           "<span>" + i.qty + "</span>" +
-          '<button onclick="drawerChangeQty(' + p.id + ",1," + cArg + "," + wArg + ')" aria-label="Increase quantity">+</button>' +
+          '<button onclick="drawerChangeQty(' + p.id + ",1," + cArg + "," + wArg + "," + fArg + ')" aria-label="Increase quantity">+</button>' +
         "</div>" +
       "</div>" +
-      '<button class="drawer-remove" onclick="Cart.remove(' + p.id + "," + cArg + "," + wArg + ');renderCartDrawer();" aria-label="Remove">' + icon("x", 15) + "</button>" +
+      '<button class="drawer-remove" onclick="Cart.remove(' + p.id + "," + cArg + "," + wArg + "," + fArg + ');renderCartDrawer();" aria-label="Remove">' + icon("x", 15) + "</button>" +
     "</div>";
   }).join("");
   if (subEl) subEl.textContent = formatINR(Cart.total());
 }
 
-function drawerChangeQty(id, delta, comboId, weight) {
+function drawerChangeQty(id, delta, comboId, weight, flavor) {
   const items = Cart.items();
-  const found = Cart.find(items, id, comboId, weight);
-  if (found) Cart.setQty(id, found.qty + delta <= 0 ? 1 : found.qty + delta, comboId, weight);
+  const found = Cart.find(items, id, comboId, weight, flavor);
+  if (found) Cart.setQty(id, found.qty + delta <= 0 ? 1 : found.qty + delta, comboId, weight, flavor);
   renderCartDrawer();
 }
 

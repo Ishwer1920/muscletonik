@@ -43,6 +43,7 @@ def create_session(request):
         "items": [
             {"id": str(li["product"].id), "name": li["product"].name,
              "weight": li.get("weight", ""),
+             "flavor": li.get("flavor", ""),
              "price": li.get("unitPrice", li["product"].sellingPrice),
              "quantity": li["quantity"]}
             for li in session["items"]

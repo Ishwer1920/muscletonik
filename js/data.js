@@ -129,7 +129,7 @@ let BANNERS = [];
 // Admin-created website alerts (notification bell) + the search-glow config,
 // both served in the public catalogue payload.
 let ALERTS = [];
-let SEARCH_GLOW = {};
+// Festival Lights config (the draped navbar garland), stored as "rgbLight".
 let RGB_LIGHT = {};
 
 // How the hero slideshow behaves — set in Admin -> Slideshow, mirrored from
@@ -146,7 +146,16 @@ function getCategoryById(id) { return CATEGORIES.find(c => c.id === id); }
 function formatINR(n) { return "Rs " + Number(n).toLocaleString("en-IN"); }
 function discountPct(price, oldPrice) { return Math.round(((oldPrice - price) / oldPrice) * 100); }
 function bestSellingProducts() { return PRODUCTS.filter(p => p.badge === "Bestseller" || p.rating >= 4.7); }
-function featuredProducts() { return PRODUCTS.filter(p => p.featured); }
+function featuredProducts() {
+  const picked = PRODUCTS.filter(p => p.featured);
+  if (picked.length) return picked;
+  // Nothing is explicitly flagged "featured" (e.g. a bulk-imported catalogue):
+  // never leave the homepage's Featured section empty — hand-pick the best-rated,
+  // most-reviewed products instead so it always has something worth showing.
+  const byReviews = [...PRODUCTS].sort((a, b) => (Number(b.reviews) || 0) - (Number(a.reviews) || 0));
+  const highRated = byReviews.filter(p => (Number(p.rating) || 0) >= 4.5);
+  return (highRated.length ? highRated : byReviews).slice(0, 10);
+}
 function dealProducts() { return PRODUCTS.filter(p => p.deal || discountPct(p.price, p.oldPrice) >= 20); }
 
 // The port the backend API listens on. Change here (or set
@@ -264,7 +273,6 @@ async function hydrateCatalogFromApi() {
     }
     if (payload && Array.isArray(payload.banners)) BANNERS = payload.banners;
     if (payload && Array.isArray(payload.alerts)) ALERTS = payload.alerts;
-    if (payload && payload.searchGlow && typeof payload.searchGlow === "object") SEARCH_GLOW = payload.searchGlow;
     if (payload && payload.rgbLight && typeof payload.rgbLight === "object") RGB_LIGHT = payload.rgbLight;
     if (payload && Array.isArray(payload.combos)) COMBOS = payload.combos;
     if (payload && payload.slideshowSettings && typeof payload.slideshowSettings === "object") {
@@ -511,7 +519,6 @@ if (typeof window !== "undefined") {
     get heroSlides() { return HERO_SLIDES; },
     get banners() { return BANNERS; },
     get alerts() { return ALERTS; },
-    get searchGlow() { return SEARCH_GLOW; },
     get rgbLight() { return RGB_LIGHT; },
     get slideshowSettings() { return SLIDESHOW_SETTINGS; },
     get homepageSections() { return HOMEPAGE_SECTIONS; },

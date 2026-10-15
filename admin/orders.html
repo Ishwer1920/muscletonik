@@ -14,6 +14,64 @@
 <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  /* Items column: one product per line, each with a photo thumbnail. */
+  .ord-items { display:flex; flex-direction:column; gap:2px; min-width:220px; }
+  .ord-item { display:flex; align-items:center; gap:10px; padding:7px 0; }
+  .ord-item + .ord-item { border-top:1px dashed var(--border, #e6e6e6); }
+  .ord-item-thumb {
+    flex:0 0 46px; width:46px; height:46px; border-radius:8px;
+    overflow:hidden; display:inline-flex; align-items:center; justify-content:center;
+  }
+  .ord-item-thumb img, .ord-item-thumb svg { width:100%; height:100%; object-fit:contain; }
+  .ord-item-info { display:flex; flex-direction:column; gap:1px; min-width:0; }
+  .ord-item-name { font-size:13px; font-weight:600; line-height:1.25; }
+  .ord-item-meta { font-size:11px; color:var(--text-light); font-weight:600; }
+  .ord-item-qty { background:rgba(17,17,17,.06); border-radius:5px; padding:0 6px; }
+  .ord-item-flavor { background:var(--primary,#ff6a00); color:#fff; border-radius:5px; padding:0 6px; }
+
+  /* Clickable product name / thumbnail (opens the image lightbox). */
+  button.ord-item-name { background:none; border:0; margin:0; padding:0; font:inherit;
+    color:inherit; text-align:left; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  button.ord-item-name:hover { color:var(--primary,#ff6a00); text-decoration:underline; }
+  .ord-item-thumb.ord-lb-open { cursor:pointer; }
+  .ord-item-thumb.ord-lb-open:hover { outline:2px solid var(--primary,#ff6a00); outline-offset:1px; }
+  .ord-item-imgcount { font-size:10px; font-weight:700; background:rgba(17,17,17,.08);
+    color:var(--text-light,#666); border-radius:999px; padding:1px 6px; line-height:1.6; }
+
+  /* Image lightbox — a small centred popup over the same page. */
+  .ord-lightbox { position:fixed; inset:0; z-index:9999; display:flex;
+    align-items:center; justify-content:center; padding:20px; }
+  .ord-lb-backdrop { position:absolute; inset:0; background:rgba(10,10,12,.82); }
+  .ord-lb-dialog { position:relative; z-index:1; display:grid;
+    grid-template-columns:auto 1fr auto; grid-template-rows:1fr auto; gap:12px;
+    align-items:center; width:100%; max-width:min(92vw,560px); }
+  .ord-lb-stage { grid-column:2; grid-row:1; display:flex; align-items:center;
+    justify-content:center; background:#fff; border-radius:12px; overflow:hidden; min-height:0;
+    box-shadow:0 12px 40px rgba(0,0,0,.45); }
+  .ord-lb-img { max-width:100%; max-height:70vh; width:auto; height:auto;
+    object-fit:contain; display:block; }
+  .ord-lb-img.is-broken { min-width:180px; min-height:180px;
+    background:#f1f1f1 center/40px no-repeat
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' fill='none' stroke='%23999' stroke-width='1.6'><rect x='8' y='10' width='32' height='28' rx='3'/><circle cx='18' cy='20' r='3'/><path d='M12 36l9-9 7 6 5-4 7 7'/></svg>"); }
+  .ord-lb-nav { z-index:2; width:44px; height:44px; border-radius:50%; border:0;
+    background:rgba(255,255,255,.92); color:#111; font-size:26px; line-height:1;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.3); }
+  .ord-lb-nav:hover { background:#fff; }
+  .ord-lb-prev { grid-column:1; grid-row:1; }
+  .ord-lb-next { grid-column:3; grid-row:1; }
+  .ord-lb-x { position:absolute; top:-16px; right:-6px; z-index:3; width:34px; height:34px;
+    border-radius:50%; border:0; background:#fff; color:#111; font-size:22px; line-height:1;
+    cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,.3); }
+  .ord-lb-cap { grid-column:1 / -1; grid-row:2; display:flex; gap:8px; justify-content:center;
+    align-items:center; color:#fff; font-size:13px; font-weight:600; }
+  .ord-lb-count { color:rgba(255,255,255,.72); font-variant-numeric:tabular-nums; }
+  @media (max-width:560px) {
+    .ord-lb-nav { width:38px; height:38px; font-size:22px; }
+    .ord-lb-img { max-height:60vh; }
+  }
+</style>
 </head>
 <body>
 <div id="site-header"></div>
@@ -57,6 +115,6 @@
 <script src="/js/config.js?v=20261031"></script>
 <script src="/js/data.js?v=20261031"></script>
 <script src="/js/core.js?v=20261031"></script>
-<script src="/js/admin/orders.js?v=20261031"></script>
+<script src="/js/admin/orders.js?v=20261103"></script>
 </body>
 </html>

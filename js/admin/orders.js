@@ -66,9 +66,147 @@ function deliveryCell(order) {
     </div>`;
 }
 
+// Image sets for the lightbox. Each item line that carries photos pushes its
+// set here while the row HTML is built; the clickable name/thumb keeps the set's
+// index in data-lb, and one delegated handler opens the viewer. Reset on every
+// render so indices never point at a stale set.
+let MT_LB_SETS = [];
+function registerLightbox(images, name) {
+  MT_LB_SETS.push({ images: images.slice(), name: name || "" });
+  return MT_LB_SETS.length - 1;
+}
+
+// Every photo the admin added for a product, newest-fallbacks included.
+function itemImages(item) {
+  if (Array.isArray(item.images) && item.images.length) return item.images.filter(Boolean);
+  return item.image ? [item.image] : [];
+}
+
+// A thumbnail for one order line. Reuses the storefront's productImage() so a
+// dead/absent photo URL falls back to the branded silhouette in the product's
+// own tone instead of showing a broken-image icon.
+function itemThumb(item) {
+  const p = {
+    images: item.image ? [item.image] : [],
+    color: item.color || "#111111",
+    name: item.productName || item.name || "Product"
+  };
+  if (typeof productImage === "function") return productImage(p);
+  return item.image ? `<img src="${escapeHtml(item.image)}" alt="">` : "";
+}
+
+// The "Items" cell: every product in the order on its own line, each with a
+// photo, the full catalogue name, the chosen pack/weight and the quantity.
+// Clicking the name (or thumbnail) opens every photo of that product in a
+// lightbox with previous/next controls.
+function itemsCell(order) {
+  const list = order.items || [];
+  if (!list.length) return `<span style="color:var(--text-light);">—</span>`;
+  const lines = list.map(i => {
+    const name = i.productName || i.name || "Item";
+    const qty = Number(i.quantity) || 1;
+    const images = itemImages(i);
+    const meta = [];
+    // Flavour first — it's what an admin scans for when packing a variant.
+    if (i.flavor) meta.push(`<span class="ord-item-flavor">${escapeHtml(i.flavor)}</span>`);
+    if (i.weight) meta.push(escapeHtml(i.weight));
+    meta.push(`<span class="ord-item-qty">× ${qty}</span>`);
+
+    let thumbClass = "ord-item-thumb";
+    let nameHtml = `<span class="ord-item-name">${escapeHtml(name)}</span>`;
+    if (images.length) {
+      const idx = registerLightbox(images, name);
+      const count = images.length > 1
+        ? `<span class="ord-item-imgcount" title="${images.length} photos">${images.length}</span>` : "";
+      thumbClass += " ord-lb-open";
+      nameHtml = `<button type="button" class="ord-item-name ord-lb-open" data-lb="${idx}">${escapeHtml(name)}${count}</button>`;
+      var thumbData = ` data-lb="${idx}" role="button" tabindex="0" title="View ${images.length} photo${images.length > 1 ? "s" : ""}"`;
+    }
+    const thumbAttrs = images.length ? thumbData : "";
+    return `<div class="ord-item">
+      <span class="${thumbClass}"${thumbAttrs} style="background:${escapeHtml(i.color || "#111111")}14;">${itemThumb(i)}</span>
+      <span class="ord-item-info">
+        ${nameHtml}
+        <span class="ord-item-meta">${meta.join(" · ")}</span>
+      </span>
+    </div>`;
+  }).join("");
+  return `<div class="ord-items">${lines}</div>`;
+}
+
+// Build the image lightbox once, lazily, and reuse it. Returns { open }.
+function ensureLightbox() {
+  if (window.__mtOrdersLightbox) return window.__mtOrdersLightbox;
+  const overlay = document.createElement("div");
+  overlay.className = "ord-lightbox";
+  overlay.hidden = true;
+  overlay.innerHTML = `
+    <div class="ord-lb-backdrop" data-lb-close></div>
+    <div class="ord-lb-dialog" role="dialog" aria-modal="true" aria-label="Product images">
+      <button type="button" class="ord-lb-x" data-lb-close aria-label="Close">×</button>
+      <button type="button" class="ord-lb-nav ord-lb-prev" aria-label="Previous image">‹</button>
+      <div class="ord-lb-stage"><img class="ord-lb-img" alt=""></div>
+      <button type="button" class="ord-lb-nav ord-lb-next" aria-label="Next image">›</button>
+      <div class="ord-lb-cap"><span class="ord-lb-title"></span><span class="ord-lb-count"></span></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const state = { images: [], index: 0, name: "" };
+  const imgEl = overlay.querySelector(".ord-lb-img");
+  const titleEl = overlay.querySelector(".ord-lb-title");
+  const countEl = overlay.querySelector(".ord-lb-count");
+  const prevBtn = overlay.querySelector(".ord-lb-prev");
+  const nextBtn = overlay.querySelector(".ord-lb-next");
+
+  function show(i) {
+    const n = state.images.length;
+    if (!n) return;
+    state.index = (i + n) % n;          // wrap around both ends
+    imgEl.classList.remove("is-broken");
+    imgEl.src = state.images[state.index];
+    titleEl.textContent = state.name;
+    countEl.textContent = n > 1 ? `${state.index + 1} / ${n}` : "";
+    const many = n > 1;
+    prevBtn.hidden = !many;
+    nextBtn.hidden = !many;
+  }
+  function open(images, name, start) {
+    state.images = images || [];
+    state.name = name || "";
+    overlay.hidden = false;
+    document.body.style.overflow = "hidden";
+    show(start || 0);
+  }
+  function close() {
+    overlay.hidden = true;
+    imgEl.removeAttribute("src");
+    document.body.style.overflow = "";
+  }
+
+  prevBtn.addEventListener("click", () => show(state.index - 1));
+  nextBtn.addEventListener("click", () => show(state.index + 1));
+  overlay.addEventListener("click", e => { if (e.target.hasAttribute("data-lb-close")) close(); });
+  imgEl.addEventListener("error", () => { imgEl.classList.add("is-broken"); });
+  document.addEventListener("keydown", e => {
+    if (overlay.hidden) return;
+    if (e.key === "Escape") close();
+    else if (e.key === "ArrowLeft") show(state.index - 1);
+    else if (e.key === "ArrowRight") show(state.index + 1);
+  });
+
+  window.__mtOrdersLightbox = { open, close };
+  return window.__mtOrdersLightbox;
+}
+
+function openItemLightbox(idx) {
+  const set = MT_LB_SETS[idx];
+  if (!set || !set.images.length) return;
+  ensureLightbox().open(set.images, set.name, 0);
+}
+
 function orderRow(order) {
   const date = order.createdAt ? new Date(order.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "";
-  const items = order.items.map(i => `${i.name} × ${i.quantity}`).join("<br>");
+  const items = itemsCell(order);
   const customer = order.customer ? `${order.customer.name || ""}<br><span style="color:var(--text-light);font-size:12px;">${order.customer.email || ""}</span>` : "—";
   const payType = order.paymentProvider === "cod" ? "Cash on Delivery" : "Online";
   return `
@@ -78,7 +216,7 @@ function orderRow(order) {
         <span style="color:var(--text-light);font-size:12px;">${date}</span>
       </td>
       <td>${customer}</td>
-      <td style="font-size:13px;">${items}</td>
+      <td style="vertical-align:top;">${items}</td>
       <td style="max-width:220px;font-size:12px;color:var(--text-light);">${addressLine(order.shippingAddress)}</td>
       <td style="font-weight:700;">${formatINR(order.total)}<br><span style="font-weight:500;color:var(--text-light);font-size:12px;">${payType}</span></td>
       <td>${selectHtml("fulfillmentStatus", FULFILLMENT_OPTIONS, order.fulfillmentStatus)}</td>
@@ -126,6 +264,8 @@ async function loadOrders() {
       root.innerHTML = `<div class="empty-state" style="padding:50px 20px;"><h3>No orders match this filter</h3></div>`;
       return;
     }
+    // Reset the lightbox registry before orderRow()/itemsCell() repopulate it.
+    MT_LB_SETS = [];
     root.innerHTML = `
       <div class="admin-table-wrap">
         <table class="admin-table">
@@ -137,6 +277,16 @@ async function loadOrders() {
       </div>`;
     root.querySelectorAll(".btn-save").forEach(btn => {
       btn.addEventListener("click", () => saveRow(btn.closest("tr")));
+    });
+    // Open the product image lightbox from a clicked name or thumbnail.
+    root.querySelectorAll(".ord-lb-open").forEach(el => {
+      el.addEventListener("click", () => openItemLightbox(Number(el.getAttribute("data-lb"))));
+      el.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openItemLightbox(Number(el.getAttribute("data-lb")));
+        }
+      });
     });
   } catch (err) {
     controls.style.display = "none";

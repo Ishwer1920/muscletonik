@@ -82,7 +82,7 @@ function imageSlideMarkup(slide, index) {
   const picture = `
     <picture>
       ${mobile ? `<source media="(max-width:640px)" srcset="${mobile}">` : ""}
-      <img src="${desktop}" alt="${alt}" loading="${loading}" decoding="async" draggable="false">
+      <img src="${desktop}" alt="${alt}" loading="${loading}" decoding="async" draggable="false" onerror="mtMediaFail(this)">
     </picture>`;
   const inner = href
     ? `<a class="hero-banner" href="${escapeHtml(href)}">${picture}</a>`
@@ -101,7 +101,7 @@ function bannerSlideMarkup(slide, index) {
   const picture = `
     <picture>
       ${mobile ? `<source media="(max-width:640px)" srcset="${mobile}">` : ""}
-      <img src="${desktop}" alt="${alt}" loading="${loading}" decoding="async" draggable="false">
+      <img src="${desktop}" alt="${alt}" loading="${loading}" decoding="async" draggable="false" onerror="mtMediaFail(this)">
     </picture>`;
   const cta = slide.ctaText && href
     ? `<a class="btn btn-primary hero-banner-cta" href="${escapeHtml(href)}">${escapeHtml(slide.ctaText)}</a>`
@@ -154,28 +154,58 @@ function offerCardMarkup(slide, accentClass) {
   if (slide.cardImage) {
     const src = escapeHtml(slide.cardImage);
     const alt = escapeHtml(slide.cardAlt || "Current offer");
-    const img = `<img src="${src}" alt="${alt}" loading="lazy">`;
+    // If the artwork fails to load, swap the whole card for the designed panel
+    // rather than leaving a broken-image box with its alt text showing.
+    const img = `<img src="${src}" alt="${alt}" loading="lazy" onerror="mtOfferImgFail(this)">`;
     return slide.cardHref
       ? `<a class="glass-card hero-offer-card" href="${escapeHtml(slide.cardHref)}">${img}</a>`
       : `<div class="glass-card hero-offer-card">${img}</div>`;
   }
+  return designedOfferPanel(accentClass);
+}
+
+// The designed "first-order offer" panel shown in the hero when no artwork is
+// configured (or when configured artwork fails to load). It always renders —
+// the product silhouette is inline SVG, so there is no image here that can 404.
+function designedOfferPanel(accentClass) {
+  const top = (typeof getTopProducts === "function" && getTopProducts(1)[0]) || PRODUCTS[0];
+  // Always the branded silhouette here, not a real photo — this is decorative
+  // chrome and must never risk a 404 inside the hero.
+  const art = productSilhouette(top && top.color);
   return `
-          <div class="glass-card ${accentClass}">
+          <div class="glass-card ${accentClass || "hero-dark"}">
             <div class="pct">10%</div>
-            <div class="lbl">extra off on first order</div>
+            <div class="lbl">extra off on your first order</div>
             <div style="margin-top:18px;display:flex;align-items:center;gap:14px;">
-              <div style="width:88px;height:108px;">${productImage(PRODUCTS[0])}</div>
+              <div style="width:88px;height:108px;flex-shrink:0;">${art}</div>
               <div style="text-align:left;">
                 <div style="font-size:12px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em;">Deal spotlight</div>
                 <div style="font-family:'Poppins',sans-serif;font-size:18px;font-weight:700;line-height:1.2;margin-top:5px;">Best sellers and daily deals in one clean view.</div>
               </div>
             </div>
             <div class="product-badges">
-              <span>Orange CTA</span>
-              <span>Fast checkout</span>
-              <span>Mobile ready</span>
+              <span>100% Authentic</span>
+              <span>Fast dispatch</span>
+              <span>Free COD</span>
             </div>
           </div>`;
+}
+
+// A hero offer image failed to load: replace it with the designed panel so the
+// hero never shows a broken-image box with overlapping alt text.
+function mtOfferImgFail(img) {
+  const card = img && img.closest(".hero-offer-card");
+  if (card) card.outerHTML = designedOfferPanel("hero-dark");
+}
+
+// A full-bleed hero banner image failed to load: hide the broken image (so its
+// alt text can't overlay a broken-image icon) and let the container show its
+// branded gradient placeholder instead.
+function mtMediaFail(img) {
+  if (!img) return;
+  img.style.display = "none";
+  const holder = img.closest(".hero-banner");
+  if (holder) holder.classList.add("media-failed");
 }
 
 /* ===========================================================
@@ -398,14 +428,16 @@ function renderHeroSlides() {
   applyHeroOffset(0);
 }
 
-// Promo artwork shown in the hero offer card when nothing is configured in
-// Admin -> Banners yet. The file lives in public_html/uploads/banners/; set
-// `image` to "" to go back to the designed "10% extra off" panel. Anything
-// saved in the admin panel overrides this.
+// Fallback hero offer card when nothing is configured in Admin -> Banners.
+// `image` is intentionally empty so the hero renders the designed "10% off"
+// panel (which always paints) instead of a hardcoded file: the previous default
+// pointed at /uploads/banners/ad.jpeg, which does not exist and showed a broken
+// image with its alt text overlaid. To use real artwork, upload it in the admin
+// panel (that overrides this) or set `image` to an asset that actually exists.
 const HERO_OFFER_FALLBACK = {
-  image: "/uploads/banners/ad.jpeg",
+  image: "",
   href: "offers.html",
-  alt: "Launching offer: buy 3 GNC products for Rs.2499, free T-shirt with bill"
+  alt: "Current offer"
 };
 
 // The offer artwork is one setting for the whole hero, not per slide, so it

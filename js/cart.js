@@ -60,21 +60,26 @@ function renderCart() {
 
     const cArg = comboId ? `'${escapeHtml(comboId)}'` : "null";
     const wArg = `'${escapeHtml(line.weight || "")}'`;
+    const fArg = `'${escapeHtml(line.flavor || "")}'`;
     const packLine = line.weightLabel
       ? `<div class="cart-variant">Pack: ${escapeHtml(line.weightLabel)}</div>`
       : "";
+    const flavorLine = line.flavor
+      ? `<div class="cart-variant">Flavour: ${escapeHtml(line.flavor)}</div>`
+      : "";
     rendered.push(`<div class="cart-item${comboId ? " in-combo" : ""}">
-      <div class="thumb" style="background:${p.color}18;display:flex;align-items:center;justify-content:center;">${productImage(p)}</div>
+      <div class="thumb" style="background:${p.color}18;display:flex;align-items:center;justify-content:center;">${productImage(flavorView(p, line.flavor))}</div>
       <div>
         <h4>${p.name}</h4>
         <span style="font-size:12px;color:var(--text-light);">${getBrandById(p.brand).name}</span>
+        ${flavorLine}
         ${packLine}
         <div class="qty-box" style="margin-top:10px;width:fit-content;">
-          <button onclick="updateCartQty(${p.id},-1,${cArg},${wArg})">-</button>
+          <button onclick="updateCartQty(${p.id},-1,${cArg},${wArg},${fArg})">-</button>
           <span>${line.qty}</span>
-          <button onclick="updateCartQty(${p.id},1,${cArg},${wArg})">+</button>
+          <button onclick="updateCartQty(${p.id},1,${cArg},${wArg},${fArg})">+</button>
         </div>
-        <div class="remove" onclick="Cart.remove(${p.id},${cArg},${wArg});renderCart();">Remove</div>
+        <div class="remove" onclick="Cart.remove(${p.id},${cArg},${wArg},${fArg});renderCart();">Remove</div>
       </div>
       <div style="text-align:right;">
         <div style="font-weight:800;font-family:'Poppins',sans-serif;">${formatINR(line.lineTotal)}</div>
@@ -92,10 +97,10 @@ function renderCart() {
   renderSummary();
 }
 
-function updateCartQty(id, delta, comboId, weight) {
+function updateCartQty(id, delta, comboId, weight, flavor) {
   const items = Cart.items();
-  const found = Cart.find(items, id, comboId, weight);
-  if (found) Cart.setQty(id, found.qty + delta <= 0 ? 1 : found.qty + delta, comboId, weight);
+  const found = Cart.find(items, id, comboId, weight, flavor);
+  if (found) Cart.setQty(id, found.qty + delta <= 0 ? 1 : found.qty + delta, comboId, weight, flavor);
   renderCart();
 }
 
@@ -182,7 +187,7 @@ async function applyCoupon() {
     return;
   }
 
-  const items = Cart.items().map(i => ({ id: i.id, qty: i.qty, weight: i.weight || "" }));
+  const items = Cart.items().map(i => ({ id: i.id, qty: i.qty, weight: i.weight || "", flavor: i.flavor || "" }));
   if (!items.length) {
     showToast("Your cart is empty.");
     return;

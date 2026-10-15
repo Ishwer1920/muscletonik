@@ -20,6 +20,10 @@ class OrderItem(me.EmbeddedDocument):
     # The pack/weight the customer chose, e.g. "2 KG". Blank for single-price
     # products. `price` is the unit price for that pack, server-computed.
     weight = me.StringField(default="")
+    # The flavour the customer picked, e.g. "Chocolate". Blank when the product
+    # has no flavour choice. Validated against the product's flavours at
+    # checkout so the admin sees exactly what shipped.
+    flavor = me.StringField(default="")
     price = me.FloatField(required=True, min_value=0)
     quantity = me.IntField(required=True, min_value=1)
 

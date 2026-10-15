@@ -40,16 +40,20 @@ function renderCheckoutItems() {
     root.innerHTML = '<div class="empty-state"><h3>Your cart is empty</h3><p style="color:var(--text-light);margin-top:8px;">Add items before starting checkout.</p><a class="btn btn-primary" href="marketplace.html" style="margin-top:16px;">Browse Products</a></div>';
     return false;
   }
-  root.innerHTML = items.map(item => `
+  root.innerHTML = items.map(item => {
+    const variant = [item.flavor, resolveWeightLabel(item.product, item.weight || "")].filter(Boolean).map(escapeHtml).join(" · ");
+    return `
     <div class="cart-item">
-      <div class="thumb" style="background:${item.product.color}18;display:flex;align-items:center;justify-content:center;">${productImage(item.product)}</div>
+      <div class="thumb" style="background:${item.product.color}18;display:flex;align-items:center;justify-content:center;">${productImage(flavorView(item.product, item.flavor))}</div>
       <div>
         <h4>${item.product.name}</h4>
+        ${variant ? `<div style="font-size:12px;color:var(--text-light);margin-top:2px;">${variant}</div>` : ""}
         <div style="font-size:12px;color:var(--text-light);margin-top:4px;">Qty ${item.qty}</div>
       </div>
       <div style="text-align:right;font-weight:800;font-family:'Poppins',sans-serif;">${formatINR(item.product.price * item.qty)}</div>
     </div>
-  `).join("");
+  `;
+  }).join("");
   return true;
 }
 
