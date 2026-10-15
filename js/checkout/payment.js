@@ -107,9 +107,7 @@ window.MTCheckout.payment = (function () {
         amount: orderData.amount,
         currency: orderData.currency || "INR",
         name: "Muscle Tonik",
-        description: orderData.paymentMode === "cod_advance"
-          ? "20% advance — balance payable on delivery"
-          : "Order payment",
+        description: "Order payment",
         prefill: options && options.prefill ? options.prefill : {},
         notes: { checkoutSessionId: orderData.sessionId },
         theme: { color: "#ff7a00" },

@@ -14,7 +14,19 @@ def serialize_order(order):
         "id": str(order.id),
         "orderNumber": order.orderNumber,
         "items": [
-            {"name": item.name, "sku": item.sku, "price": item.price, "quantity": item.quantity}
+            {
+                "name": item.name,
+                "sku": item.sku,
+                # The pack/weight the customer chose (e.g. "2 KG"); blank for
+                # single-price products. Useful on both the customer's order
+                # list and the admin dashboard to tell variants apart.
+                "weight": item.weight or "",
+                # The flavour the customer chose (e.g. "Chocolate"); blank when
+                # the product has none.
+                "flavor": getattr(item, "flavor", "") or "",
+                "price": item.price,
+                "quantity": item.quantity,
+            }
             for item in order.items
         ],
         "subtotal": order.subtotal,

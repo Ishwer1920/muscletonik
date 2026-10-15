@@ -312,9 +312,9 @@ def get_catalog():
         "slideshowSettings": slideshow_settings(),
         # Admin-created website announcements for the notification bell.
         "alerts": live_alerts(),
-        # Search-bar glow appearance (Admin -> Settings -> Search Bar Glow).
-        "searchGlow": settings.get("searchGlow") or {},
-        # Site-wide RGB Light config (Admin -> Settings -> RGB Light).
+        # Festival Lights config (Admin -> Settings -> Festival Lights): the
+        # draped garland on the navbar. {enabled, mode:"festival"}. This replaced
+        # the old RGB Light / Navbar Neon / Search Glow lighting options.
         "rgbLight": settings.get("rgbLight") or {},
         # Store-wide GST, so cart/checkout can label and estimate at the same
         # rate the server charges. Configured in Admin -> Tax.

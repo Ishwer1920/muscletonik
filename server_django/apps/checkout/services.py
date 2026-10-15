@@ -22,6 +22,20 @@ def _get_products_for_cart(items):
     return list(Product.objects(sku__in=ids, status="active"))
 
 
+def _resolve_flavor(product, requested):
+    """The product's own flavour whose name matches `requested` (case-insensitive),
+    or "" when the product has no flavours or the request matches none. Returns
+    the catalogue's spelling, not the client's, so the saved order is canonical."""
+    requested = str(requested or "").strip()
+    if not requested:
+        return ""
+    for f in (getattr(product, "flavors", None) or []):
+        name = (getattr(f, "name", "") or "").strip()
+        if name and name.lower() == requested.lower():
+            return name
+    return ""
+
+
 def resolve_line_items(items):
     """Turn the client's [{id, qty}] rows into priced line items backed by the
     live catalog. Split out of create_checkout_session so the coupon-quote
@@ -42,6 +56,10 @@ def resolve_line_items(items):
             "weight": str(
                 item.get("weight") or item.get("packLabel") or item.get("variant") or ""
             ).strip(),
+            # The flavour the shopper picked (e.g. "Chocolate"). Display only —
+            # it never affects price — but it is validated against the product's
+            # own flavour list below so the saved order can't carry a bogus one.
+            "flavor": str(item.get("flavor") or item.get("flavour") or "").strip(),
         }
         for item in items
     ]
@@ -71,6 +89,9 @@ def resolve_line_items(items):
             # The resolved pack and its unit price, so the saved order and the
             # summary reflect exactly what was charged.
             "weight": weight_label,
+            # Only keep a flavour the product actually offers (case-insensitive
+            # match); anything else is dropped rather than trusted from the body.
+            "flavor": _resolve_flavor(product, item.get("flavor")),
             "unitPrice": unit_price,
             "lineTotal": pricing.round_money(unit_price * item["quantity"]),
         })
@@ -270,6 +291,7 @@ def verify_and_capture_payment(user_id, session, razorpay_order_id, razorpay_pay
                 OrderItem(
                     product=li["product"].id, name=li["product"].name,
                     sku=li["product"].sku, weight=li.get("weight", ""),
+                    flavor=li.get("flavor", ""),
                     # The actual unit price charged for the chosen pack, so the
                     # order records what the customer paid, not the base price.
                     price=li.get("unitPrice", li["product"].sellingPrice),
@@ -358,6 +380,7 @@ def place_cod_order(user_id, session, bmi_snapshot=None):
                 OrderItem(
                     product=li["product"].id, name=li["product"].name,
                     sku=li["product"].sku, weight=li.get("weight", ""),
+                    flavor=li.get("flavor", ""),
                     price=li.get("unitPrice", li["product"].sellingPrice),
                     quantity=li["quantity"],
                 )

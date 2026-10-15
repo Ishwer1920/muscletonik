@@ -120,6 +120,7 @@ header.site.scrolled{
   box-shadow:0 8px 24px -16px rgba(17,17,17,.25);
   border-bottom-color:transparent;
 }
+
 /* Wider than the 1240px content rhythm on purpose: logo + 7 nav links +
    search + 4 action icons genuinely do not fit 1240px, and capping it there
    is what forced the row to overflow the document. Content sections keep
@@ -520,10 +521,13 @@ header.site.scrolled{
   position:relative;
   min-height:440px;
 }
+/* A soft orange backlight behind the offer card — toned down from a large,
+   high-opacity halo to a tighter, lower-opacity glow so it reads as controlled
+   depth rather than a diffuse wash. */
 .hero-visual .hero-orb{
   position:absolute;
-  width:420px;height:420px;border-radius:50%;
-  background:radial-gradient(circle, rgba(255,122,0,.55) 0%, rgba(255,122,0,.12) 46%, transparent 70%);
+  width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle, rgba(255,122,0,.38) 0%, rgba(255,122,0,.08) 46%, transparent 68%);
   filter:blur(4px);
   animation:orbFloat 8s ease-in-out infinite;
 }
@@ -808,8 +812,8 @@ header.site.scrolled{
 .prod-body h4{font-size:14.5px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.7em;}
 .prod-stars{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-light);}
 .prod-stars .s{color:var(--primary);letter-spacing:1px;}
-.prod-price{display:flex;align-items:baseline;gap:8px;margin-top:auto;padding-top:8px;}
-.prod-price .now{font-family:'Poppins',sans-serif;font-weight:800;font-size:17px;}
+.prod-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;row-gap:2px;margin-top:auto;padding-top:8px;}
+.prod-price .now{font-family:'Poppins',sans-serif;font-weight:800;font-size:17px;white-space:nowrap;}
 .prod-price .was{font-size:12px;color:var(--text-light);text-decoration:line-through;}
 .prod-price .off{font-size:12px;color:var(--green);font-weight:700;}
 .add-cart-btn{margin-top:8px;background:var(--dark);color:#fff;border-radius:10px;padding:10px;font-weight:700;font-size:13px;text-align:center;transition:background .2s;}
@@ -1115,6 +1119,9 @@ input[type=range]{width:100%;accent-color:var(--primary);}
 .summary-row.total{font-weight:800;font-size:16px;border-top:1.5px dashed var(--border);margin-top:8px;padding-top:14px;}
 /* Hero offer card carrying artwork instead of the designed 10% panel.
    The image is square-ish, so the card drops its padding and just frames it. */
+/* If a hero banner image fails to load, mtMediaFail() hides the <img> and tags
+   the container — show a branded gradient so the slide never looks broken. */
+.hero-banner.media-failed{min-height:300px;border-radius:20px;background:linear-gradient(135deg,#141414,#2b2b2b);}
 .glass-card.hero-offer-card{padding:0;overflow:hidden;display:block;line-height:0;background:transparent;border-radius:20px;}
 .glass-card.hero-offer-card img{width:100%;height:auto;display:block;border-radius:20px;}
 a.glass-card.hero-offer-card{transition:transform .25s ease,box-shadow .25s ease;}
@@ -2849,7 +2856,9 @@ a.notif-item.is-unread:hover{background:#ffeeda;}
     -webkit-mask-composite:xor;mask-composite:exclude;
   }
   body.mt-glow-desktop .header-search-wrap.mt-glow::before{ /* soft ambient bloom */
-    z-index:0;inset:-5px;filter:blur(12px);opacity:var(--glow-amb);
+    /* Tightened: a restrained glow hugging the pill's edge rather than a wide,
+       diffuse halo. */
+    z-index:0;inset:-3px;filter:blur(8px);opacity:calc(var(--glow-amb) * .7);
   }
 }
 
@@ -3141,10 +3150,12 @@ body.rgb-on.rgb-top.rgb-mode-festival .rgb-topstrip{
    Brightness follows the admin intensity (--rgb-amb). */
 body.rgb-on.rgb-nav .header-actions .act{isolation:isolate;}
 body.rgb-on.rgb-nav .header-actions .act::after{
-  content:"";position:absolute;left:50%;top:-4px;width:30px;height:30px;transform:translateX(-50%);
+  content:"";position:absolute;left:50%;top:-3px;width:26px;height:26px;transform:translateX(-50%);
   border-radius:50%;z-index:0;pointer-events:none;
   background:conic-gradient(from 0deg,var(--glow-c1),var(--glow-c2),var(--glow-c3),var(--glow-c1));
-  filter:blur(8px);opacity:calc(.16 + var(--rgb-amb,.5) * .44);
+  /* Tighter, lower-opacity halo: a restrained backlight hugging the icon, not a
+     wide coloured smudge. */
+  filter:blur(6px);opacity:calc(.12 + var(--rgb-amb,.5) * .32);
   animation:mtNavSpin var(--rgb-speed,6s) linear infinite;
 }
 /* Icon sits above the halo and keeps its normal (dark) colour. */
@@ -3190,4 +3201,228 @@ body.rgb-on.rgb-mode-single.rgb-text header.site .logo .word span{animation:none
   body.rgb-on.rgb-nav .header-actions .act::after,
   body.rgb-on.rgb-text header.site .logo .word,
   body.rgb-on.rgb-text header.site .logo .word span{animation:none !important;}
+}
+
+/* ===========================================================
+   FESTIVAL LIGHTS (RGB) — Admin → Settings → Festival Lights.
+   Draped golden Diwali-style fairy-light garlands (sagging strands
+   of dense warm bulbs) across the chosen areas — navbar is the
+   primary effect — plus a glowing frame around the logo, a warm
+   glow behind the right-side icons, and festive category tiles.
+   The garland is an SVG tile (/css/fl-garland.svg) repeated across
+   the width. Driven entirely by body.fl-* classes + --fl-* custom
+   properties that core.js sets, so with the feature OFF there is
+   ZERO footprint: no garland, glow, shadow or layout change.
+   =========================================================== */
+:root{
+  --fl-speed:7s;     /* twinkle / pulse duration (admin "speed") */
+  --fl-amb:0.6;      /* 0.35–1.0 brightness/opacity (admin "intensity") */
+}
+
+/* The injected garland overlay, pinned to a target's top edge. Absolutely
+   positioned + pointer-events:none, so it never shifts layout or blocks taps.
+   A faint warm wash behind it lets the gold bulbs read on the white navbar. */
+.fl-string{
+  position:absolute; left:0; right:0; top:-1px;
+  height:40px; pointer-events:none; z-index:9; overflow:visible;
+  opacity:var(--fl-amb,.6);
+  /* --fl-hue (set from the RGB Light "Colour 1") shifts the gold garland toward
+     the chosen colour; 0deg keeps it warm gold for an orange colour. */
+  filter:hue-rotate(var(--fl-hue,0deg));
+  /* A soft dark-warm vignette at the very top so the gold bulbs read on the
+     white navbar; it is unnoticeable on the already-dark top strip. */
+  background:linear-gradient(180deg, rgba(38,24,8,.24), rgba(38,24,8,0) 70%);
+}
+/* Two overlaid strands (offset + different scale) give the dense, layered look
+   of real fairy lights; each twinkles on its own phase. The drop-shadows are
+   the warm glow around every bulb. */
+.fl-string::before, .fl-string::after{
+  content:""; position:absolute; left:0; right:0; top:0; height:40px;
+  background-image:url("/css/fl-garland.svg");
+  background-repeat:repeat-x; background-position:top center;
+  filter:drop-shadow(0 0 2.5px rgba(255,190,70,.75)) drop-shadow(0 0 6px rgba(255,150,30,.4));
+  will-change:opacity, filter;
+}
+.fl-string::before{ background-size:150px 38px; animation:flTwinkleA var(--fl-speed,7s) ease-in-out infinite; }
+.fl-string::after{ background-size:116px 30px; background-position:58px top; opacity:.82;
+  animation:flTwinkleB var(--fl-speed,7s) ease-in-out infinite; }
+@keyframes flTwinkleA{
+  0%,100%{opacity:1;   filter:drop-shadow(0 0 2.5px rgba(255,190,70,.75)) drop-shadow(0 0 6px rgba(255,150,30,.40)) brightness(1);}
+  50%    {opacity:.84; filter:drop-shadow(0 0 3.6px rgba(255,205,95,.90)) drop-shadow(0 0 9px rgba(255,160,40,.55)) brightness(1.2);}
+}
+@keyframes flTwinkleB{
+  0%,100%{opacity:.82; filter:drop-shadow(0 0 2px rgba(255,190,70,.7)) brightness(1.12);}
+  50%    {opacity:.5;  filter:drop-shadow(0 0 3px rgba(255,205,95,.8)) brightness(.9);}
+}
+
+/* Top strip (announcement bar) needs a positioning context for the overlay;
+   header.site is already sticky, so it anchors the overlay without any change. */
+body.fl-on.fl-topstrip .topbar{ position:relative; }
+
+/* ---- Right-side header icons (Login / Wishlist / Cart / Alerts) — each becomes
+   a premium glass tile with an animated golden glowing border (a rotating beam)
+   and an internal light streak sweeping across, intensifying on hover into the
+   bright "active" look from the reference. Part of the Navbar area. ---- */
+@property --fl-ang{ syntax:"<angle>"; inherits:false; initial-value:0deg; }
+/* ONE frosted-glass pill behind all four icons (was four separate blurred tiles),
+   with a single rotating golden border beam + sheen around the whole group. */
+body.fl-on.fl-navbar header.site .header-actions{
+  position:relative; isolation:isolate; gap:4px;
+  padding:6px 8px; border-radius:16px;
+  background:linear-gradient(180deg, rgba(42,36,30,.62), rgba(22,19,16,.52));
+  border:1px solid rgba(255,221,150,.24);
+  box-shadow:0 6px 20px -8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.1);
+  -webkit-backdrop-filter:blur(10px) saturate(150%); backdrop-filter:blur(10px) saturate(150%);
+  transition:-webkit-backdrop-filter .3s ease, backdrop-filter .3s ease, box-shadow .3s ease, border-color .3s ease, background .3s ease;
+}
+/* single internal light streak sweeping across the whole pill */
+body.fl-on.fl-navbar header.site .header-actions::before{
+  content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit; pointer-events:none; overflow:hidden;
+  background:linear-gradient(115deg, transparent 30%, rgba(255,214,130,.42) 48%, rgba(255,186,74,.62) 54%, transparent 76%);
+  background-size:220% 100%; background-position:150% 0;
+  filter:hue-rotate(var(--fl-hue,0deg));
+  animation:flTileSheen var(--fl-speed,7s) ease-in-out infinite;
+}
+/* single rotating golden border beam around the whole group */
+body.fl-on.fl-navbar header.site .header-actions::after{
+  content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit; pointer-events:none; padding:1.5px;
+  background:conic-gradient(from var(--fl-ang,0deg), transparent 0 60%, rgba(255,201,92,.95) 78%, #fff3cf 86%, rgba(255,170,45,.95) 93%, transparent 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite:exclude;
+  filter:drop-shadow(0 0 3px rgba(255,170,45,.7)) hue-rotate(var(--fl-hue,0deg));
+  animation:flTileBeam var(--fl-speed,7s) linear infinite;
+}
+/* The four icons are now plain and transparent — no individual blur/glass/border. */
+body.fl-on.fl-navbar header.site .header-actions .act{
+  position:relative; isolation:isolate;
+  padding:6px 10px 5px; border-radius:11px;
+  background:transparent; border:1px solid transparent; box-shadow:none;
+  -webkit-backdrop-filter:none; backdrop-filter:none;
+  transition:background .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+/* White icons + labels on the dark glass (currentColor drives the SVG strokes). */
+body.fl-on.fl-navbar header.site .header-actions .act,
+body.fl-on.fl-navbar header.site .header-actions .act-notif-btn{ color:#fff; }
+body.fl-on.fl-navbar header.site .header-actions .act .act-label{ color:rgba(255,255,255,.92); }
+/* Keep the 8-link desktop nav from collapsing UNDER the search bar at tight
+   widths (it was overlapping "My Plans"): the nav holds its width and the search
+   shrinks instead. Scoped to festival mode so the base site layout is untouched. */
+body.fl-on.fl-navbar header.site .nav-main{ flex-shrink:0; }
+body.fl-on.fl-navbar header.site .header-search-wrap{ min-width:120px; }
+/* HOVER OVER THE GROUP = a second, stronger frosted blur + glow on the whole pill. */
+body.fl-on.fl-navbar header.site .header-actions:hover{
+  -webkit-backdrop-filter:blur(18px) saturate(190%) brightness(1.08);
+  backdrop-filter:blur(18px) saturate(190%) brightness(1.08);
+  background:linear-gradient(180deg, rgba(60,50,38,.66), rgba(30,25,20,.56));
+  border-color:rgba(255,205,100,.9);
+  box-shadow:0 0 22px rgba(255,170,45,.55), inset 0 0 16px rgba(255,185,60,.28);
+}
+body.fl-on.fl-navbar header.site .header-actions:hover::before{ animation-duration:calc(var(--fl-speed,7s) / 2.2); }
+/* The individual icon pointed at lifts and gets a soft frosted highlight. */
+body.fl-on.fl-navbar header.site .header-actions .act:hover{
+  background:rgba(255,255,255,.12);
+  box-shadow:inset 0 0 0 1px rgba(255,214,130,.4);
+  transform:translateY(-1px);
+}
+body.fl-on.fl-navbar header.site .header-actions .act svg{ position:relative; z-index:2; }
+body.fl-on.fl-navbar header.site .header-actions .act .count{ position:relative; z-index:3; }
+@keyframes flTileBeam{ to{ --fl-ang:360deg; } }
+@keyframes flTileSheen{ 0%{ background-position:155% 0; } 55%,100%{ background-position:-55% 0; } }
+/* On tablet + narrower desktop the labelled tiles are too wide and crowd the nav
+   links + search bar, so show COMPACT ICON-ONLY tiles here. Labels return on wide
+   desktop (> 1500px) — the same point where the base site reveals "My Plans". */
+@media (max-width:1500px){
+  body.fl-on.fl-navbar header.site .header-actions{ gap:8px; }
+  body.fl-on.fl-navbar header.site .header-actions .act{ padding:7px; border-radius:12px; }
+  body.fl-on.fl-navbar header.site .header-actions .act svg{ width:19px; height:19px; }
+  body.fl-on.fl-navbar header.site .header-actions .act .act-label{ display:none; }
+  body.fl-on.fl-navbar header.site .header-actions a.act{ font-size:0; line-height:0; }
+}
+@media (max-width:600px){
+  /* On phones the festive tiles stay INLINE on the top row, right after the
+     burger + logo (burger | logo | ◻◻◻◻ on one straight row). They become small
+     icon-only glass chips so they fit; labels stay hidden. A slightly smaller
+     wordmark buys the room so nothing wraps. */
+  /* A clear gap between the burger and the logo; the logo + chips are trimmed a
+     touch so everything still fits one row down to 360px. */
+  body.fl-on.fl-navbar header.site .header-main{ gap:11px; padding-left:12px; padding-right:12px; }
+  body.fl-on.fl-navbar header.site .logo{ flex-shrink:1; min-width:0; }
+  body.fl-on.fl-navbar header.site .logo .word{ font-size:12px; white-space:nowrap; }
+  body.fl-on.fl-navbar header.site .logo .mark{ width:30px; height:30px; }
+  /* Push the chips to the right edge (margin-left:auto) with even spacing. */
+  body.fl-on.fl-navbar header.site .header-actions{ gap:7px; flex-shrink:0; margin-left:auto; }
+  body.fl-on.fl-navbar header.site .header-actions .act{ padding:5px; border-radius:10px; margin:0; }
+  body.fl-on.fl-navbar header.site .header-actions .act svg{ width:16px; height:16px; }
+  body.fl-on.fl-navbar header.site .header-actions .act .act-label{ display:none; }
+  body.fl-on.fl-navbar header.site .header-actions a.act{ font-size:0; line-height:0; }
+  /* search keeps its own full-width row below */
+  body.fl-on.fl-navbar header.site .header-search-wrap{ order:3; flex:1 1 100%; }
+}
+
+/* ---- Brand / Logo area — a glowing golden frame around the logo, echoing the
+   lit-up logo in the reference. Text/brand colours are untouched. ---- */
+body.fl-on.fl-brand header.site .logo{ position:relative; }
+body.fl-on.fl-brand header.site .logo .mark,
+body.fl-on.fl-brand header.site .logo .word{ position:relative; z-index:1; }
+body.fl-on.fl-brand header.site .logo::before{
+  content:""; position:absolute; inset:-5px -9px; z-index:0; border-radius:13px; pointer-events:none;
+  border:1.5px solid rgba(255,196,80,.85);
+  box-shadow:0 0 11px rgba(255,170,45,.65), inset 0 0 9px rgba(255,180,55,.4);
+  filter:hue-rotate(var(--fl-hue,0deg));
+  animation:flGlowPulse var(--fl-speed,7s) ease-in-out infinite alternate;
+}
+
+/* ---- Search bar — a warm festive glow when the "Search bar" target is on.
+   (Box-shadow follows the pill's own radius; no hue-shift here so the input
+   text/button are never tinted.) ---- */
+body.fl-on.fl-search header.site .header-search{
+  animation:flSearchGlow var(--fl-speed,7s) ease-in-out infinite alternate;
+}
+@keyframes flSearchGlow{
+  from{ box-shadow:0 0 0 1px rgba(255,196,90,.5),  0 0 11px rgba(255,170,45,.4); }
+  to  { box-shadow:0 0 0 2px rgba(255,214,120,.9), 0 0 20px rgba(255,180,55,.72); }
+}
+
+/* ---- Product category tiles — a warm festive glow ring, staggered. ---- */
+body.fl-on.fl-categories .cat-card{
+  animation:flCardGlow var(--fl-speed,7s) ease-in-out infinite alternate;
+}
+body.fl-on.fl-categories .cat-card:nth-child(2n){ animation-delay:calc(var(--fl-speed,7s) / -3); }
+body.fl-on.fl-categories .cat-card:nth-child(3n){ animation-delay:calc(var(--fl-speed,7s) / -1.6); }
+@keyframes flCardGlow{
+  from{ box-shadow:0 0 0 1px rgba(255,196,90,.5),   0 6px 18px -10px rgba(255,160,40,.5); }
+  to  { box-shadow:0 0 0 1.5px rgba(255,214,120,.9), 0 10px 24px -10px rgba(255,170,50,.72); }
+}
+
+@keyframes flGlowPulse{ from{ opacity:.6; } to{ opacity:1; } }
+
+/* Honour the RGB Light "Show on desktop / mobile" toggles: hide the festival
+   decoration on the viewport side the admin turned off (never the search bar
+   itself — only its glow). */
+@media (min-width:769px){
+  body.fl-on:not(.fl-desktop) .fl-string,
+  body.fl-on:not(.fl-desktop) header.site .header-actions .act::before,
+  body.fl-on:not(.fl-desktop) header.site .header-actions .act::after,
+  body.fl-on:not(.fl-desktop) header.site .logo::before{ display:none !important; }
+  body.fl-on:not(.fl-desktop) header.site .header-actions .act{ background:none !important; border:0 !important; box-shadow:none !important; padding:0 !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+  body.fl-on:not(.fl-desktop) header.site .header-search{ animation:none !important; box-shadow:none !important; }
+}
+@media (max-width:768px){
+  body.fl-on:not(.fl-mobile) .fl-string,
+  body.fl-on:not(.fl-mobile) header.site .header-actions .act::before,
+  body.fl-on:not(.fl-mobile) header.site .header-actions .act::after,
+  body.fl-on:not(.fl-mobile) header.site .logo::before{ display:none !important; }
+  body.fl-on:not(.fl-mobile) header.site .header-actions .act{ background:none !important; border:0 !important; box-shadow:none !important; padding:0 !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+  body.fl-on:not(.fl-mobile) header.site .header-search{ animation:none !important; box-shadow:none !important; }
+}
+
+/* Accessibility: respect reduced-motion — keep the golden garland, glass tiles
+   and glow but stop the sweeping/rotating animations so nothing flashes. */
+@media (prefers-reduced-motion:reduce){
+  .fl-string::before, .fl-string::after,
+  body.fl-on.fl-navbar header.site .header-actions .act::before,
+  body.fl-on.fl-navbar header.site .header-actions .act::after,
+  body.fl-on.fl-brand header.site .logo::before,
+  body.fl-on.fl-search header.site .header-search,
+  body.fl-on.fl-categories .cat-card{ animation:none !important; }
 }

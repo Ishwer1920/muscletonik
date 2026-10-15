@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from apps.accounts.models import User
+from apps.catalog.models import Product
 from apps.core.permissions import RequireAuth, RequirePermission
 from apps.payments.models import Payment
 
@@ -108,6 +109,81 @@ def _catalog_id_from_sku(sku):
         return None
 
 
+def _product_media_index(orders):
+    """Look up every product referenced by these orders in one go, so the admin
+    list can show a thumbnail and the full catalogue name for each line item.
+
+    Order items only store a snapshot name (often terse, e.g. "CREATINE
+    MONOHYDRATE"); the image and the full product title live on the Product.
+    We match on the stored product id first, then fall back to the catalogId
+    embedded in the SKU ("MT-7" -> 7) for older items saved before the id was
+    reliable. Returns two dicts: {str(objectId): product} and {catalogId: product}.
+    """
+    object_ids, catalog_ids = set(), set()
+    for order in orders:
+        for item in order.items:
+            if getattr(item, "product", None):
+                object_ids.add(item.product)
+            cid = _catalog_id_from_sku(item.sku)
+            if cid is not None:
+                catalog_ids.add(cid)
+
+    by_id, by_catalog = {}, {}
+    if object_ids:
+        for p in Product.objects(id__in=list(object_ids)):
+            by_id[str(p.id)] = p
+    if catalog_ids:
+        for p in Product.objects(catalogId__in=list(catalog_ids)):
+            by_catalog[p.catalogId] = p
+    return by_id, by_catalog
+
+
+def _enrich_items_with_media(order, entry, by_id, by_catalog):
+    """Attach image / full name / colour to each serialized item line, matching
+    it back to its catalogue product. entry["items"] is in the same order as
+    order.items, so we can zip them."""
+    for serialized, raw in zip(entry["items"], order.items):
+        product = None
+        if getattr(raw, "product", None):
+            product = by_id.get(str(raw.product))
+        if product is None:
+            cid = _catalog_id_from_sku(raw.sku)
+            if cid is not None:
+                product = by_catalog.get(cid)
+
+        # Every photo the admin added for this product: the main images plus
+        # any gallery images, de-duplicated and order-preserved. The dashboard
+        # shows the first as a thumbnail and opens the whole set in a lightbox.
+        images = []
+        if product:
+            for url in list(product.images or []) + list(product.galleryImages or []):
+                if url and url not in images:
+                    images.append(url)
+
+        # If the customer chose a flavour, lead with that flavour's own photo so
+        # the thumbnail and the first lightbox slide match exactly what shipped.
+        flavor = (serialized.get("flavor") or "").strip()
+        if flavor and product:
+            for f in (product.flavors or []):
+                if (f.name or "").strip().lower() == flavor.lower() and f.image:
+                    if f.image in images:
+                        images.remove(f.image)
+                    images.insert(0, f.image)
+                    break
+
+        serialized["image"] = images[0] if images else ""
+        serialized["images"] = images
+        serialized["catalogId"] = (
+            product.catalogId if product else _catalog_id_from_sku(raw.sku)
+        )
+        # The full catalogue title ("Creatine Monohydrate, Unflavored, 250g")
+        # vs the terse snapshot stored on the order ("CREATINE MONOHYDRATE").
+        serialized["productName"] = product.name if product else raw.name
+        serialized["color"] = (product.color if product else "") or "#111111"
+        if not serialized.get("weight") and product and product.weight:
+            serialized["weight"] = product.weight
+
+
 @api_view(["GET"])
 @permission_classes([RequirePermission("orders")])
 def list_all_orders(request):
@@ -119,10 +195,12 @@ def list_all_orders(request):
 
     orders = list(Order.objects(**filters).order_by("-createdAt"))
     users = {str(u.id): u for u in User.objects(id__in=[o.user for o in orders])}
+    by_id, by_catalog = _product_media_index(orders)
 
     result = []
     for order in orders:
         entry = serialize_order(order)
+        _enrich_items_with_media(order, entry, by_id, by_catalog)
         user = users.get(str(order.user))
         entry["customer"] = {"name": user.name, "email": user.email, "phone": user.phone} if user else None
         result.append(entry)

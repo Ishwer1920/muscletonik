@@ -232,8 +232,8 @@ function renderGalleryImage(p, index) {
   return productImage(p).replace('width="90" height="108"', 'width="230" height="276"');
 }
 
-function addCurrentToCart() { Cart.add(currentProduct.id, currentQty, currentWeight); }
-function buyNow() { Cart.add(currentProduct.id, currentQty, currentWeight); window.location.href = "cart.html"; }
+function addCurrentToCart() { Cart.add(currentProduct.id, currentQty, currentWeight, null, currentFlavor); }
+function buyNow() { Cart.add(currentProduct.id, currentQty, currentWeight, null, currentFlavor); window.location.href = "cart.html"; }
 function toggleCurrentWishlist() { Wishlist.toggle(currentProduct.id); }
 
 function switchTab(name) {

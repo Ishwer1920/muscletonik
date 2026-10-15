@@ -1,3 +1,5 @@
+import re
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
@@ -5,6 +7,46 @@ from apps.audit.utils import write_audit
 from apps.cms.models import SiteSetting
 from apps.core.permissions import RequireAdminPanel, RequirePermission
 from apps.core.serialization import to_jsonable
+
+_HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
+
+def _clamp_num(value, lo, hi, default):
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return default
+    if n != n:  # NaN
+        return default
+    return max(lo, min(hi, n))
+
+
+def _as_bool(value, default=True):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "on", "yes")
+    if value is None:
+        return default
+    return bool(value)
+
+
+def _sanitize_festival_lights(value):
+    """Festival Lights is a single on/off toggle. Only an `enabled` flag is
+    stored; `mode` is pinned to "festival" so the storefront always draws the
+    garland and never the retired rgb/single/neon effects."""
+    if not isinstance(value, dict):
+        value = {}
+    return {
+        "enabled": _as_bool(value.get("enabled"), True),
+        "mode": "festival",
+    }
+
+
+# Per-key server-side sanitizers for appearance settings that feed the UI.
+_SETTING_SANITIZERS = {
+    "rgbLight": _sanitize_festival_lights,
+}
 
 
 @api_view(["GET"])
@@ -34,6 +76,9 @@ def upsert_setting(request, key):
 
     category = str(request.data.get("category") or "general").strip()
     value = request.data.get("value")
+    sanitizer = _SETTING_SANITIZERS.get(body_key)
+    if sanitizer:
+        value = sanitizer(value)
     before = SiteSetting.objects(key=body_key).first()
     before_dict = to_jsonable(before) if before else None
 
