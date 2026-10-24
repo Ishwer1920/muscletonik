@@ -201,13 +201,14 @@ src="https://www.facebook.com/tr?id=1080942901285554&ev=PageView&noscript=1"
                   <span class="co-pay-method-desc">Pay the full amount now via UPI, card, or netbanking.</span>
                 </span>
               </label>
-              <label class="co-pay-method">
+              <label class="co-pay-method" id="codMethod" hidden>
                 <input type="radio" name="paymentMode" value="cod">
                 <span class="co-pay-method-body">
                   <span class="co-pay-method-title">Cash on Delivery <span class="cod-free-badge">FREE</span></span>
                   <span class="co-pay-method-desc" id="codDesc">No COD fee and nothing to pay now — the full amount is paid in cash on delivery.</span>
                 </span>
               </label>
+              <p class="co-pay-note" id="codNote">Cash on Delivery is available only for addresses in Punjab. Enter a Punjab address to use it; other states can pay online.</p>
             </fieldset>
 
             <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px;">Review &amp; Continue</button>

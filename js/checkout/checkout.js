@@ -37,6 +37,37 @@
     els.coupon = els.form ? els.form.querySelector('input[name="couponCode"]') : null;
     els.submit = els.form ? els.form.querySelector('button[type="submit"]') : null;
     els.codDesc = document.getElementById("codDesc");
+    els.state = els.form ? els.form.querySelector('input[name="state"]') : null;
+    els.codMethod = document.getElementById("codMethod");
+    els.codNote = document.getElementById("codNote");
+    els.codRadio = els.form ? els.form.querySelector('input[name="paymentMode"][value="cod"]') : null;
+    els.onlineRadio = els.form ? els.form.querySelector('input[name="paymentMode"][value="online"]') : null;
+  }
+
+  // Cash on Delivery only ships within Punjab. Accepts the common spellings and
+  // the ISO code so "Punjab", "panjab" and "PB" all count; anything else is
+  // treated as outside the COD zone.
+  function isPunjab(stateValue) {
+    var s = String(stateValue || "").toLowerCase().replace(/[^a-z]/g, "");
+    return s === "punjab" || s === "panjab" || s === "pb";
+  }
+
+  // Show the COD option only for a Punjab address. Outside Punjab we hide and
+  // disable it, and if it was the selected mode we fall back to paying online so
+  // the form can never submit a COD order we don't deliver.
+  function updateCodAvailability() {
+    if (!els.codMethod || !els.codRadio) return;
+    var allowed = els.state ? isPunjab(els.state.value) : false;
+    if (allowed) {
+      els.codMethod.hidden = false;
+      els.codRadio.disabled = false;
+      if (els.codNote) els.codNote.hidden = true;
+    } else {
+      if (els.codRadio.checked && els.onlineRadio) els.onlineRadio.checked = true;
+      els.codMethod.hidden = true;
+      els.codRadio.disabled = true;
+      if (els.codNote) els.codNote.hidden = false;
+    }
   }
 
   function paymentMode() {
@@ -357,6 +388,16 @@
       }
       if (els.coupon.value) refreshCoupon();
     }
+
+    // COD is Punjab-only: keep the option in sync with the typed state, and set
+    // the initial visibility from whatever's already in the field.
+    if (els.state) {
+      els.state.addEventListener("input", updateCodAvailability);
+      els.state.addEventListener("change", updateCodAvailability);
+      els.state.addEventListener("blur", updateCodAvailability);
+    }
+    updateCodAvailability();
+
     els.form.addEventListener("submit", onSubmit);
   }
 
