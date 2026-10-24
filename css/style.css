@@ -3378,6 +3378,7 @@ body.fl-on.fl-navbar header.site.scrolled{
 /* Logo wordmark goes light (the "TONIK" accent keeps its orange). */
 body.fl-on.fl-navbar header.site .logo .word{ color:#fff; }
 /* Burger bars light so they stay visible on the dark glass. */
+body.fl-on.fl-navbar header.site .burger{ background:rgba(255,255,255,.12); }
 body.fl-on.fl-navbar header.site .burger span{ background:#fff; }
 /* Nav links light, with a translucent gold-tinted hover instead of the light
    peach pill used on the white header. */
@@ -3562,8 +3563,16 @@ body.fl-on.fl-categories .cat-card:nth-child(3n){ animation-delay:calc(var(--fl-
     padding-top: 14px;
     padding-bottom: 12px;
   }
+  /* Hamburger pinned top-left so the nav menu (Categories, Products, Brands…)
+     stays reachable on mobile — it opens the drawer that lists them all. */
   .header-main .burger {
-    display: none !important;
+    display: flex !important;
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 40px;
+    height: 40px;
+    margin: 0;
   }
   .header-main .logo {
     margin: 0 auto;
