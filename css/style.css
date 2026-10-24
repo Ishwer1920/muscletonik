@@ -3338,15 +3338,28 @@ body.fl-on.fl-navbar header.site .header-actions .act .count{ position:relative;
    band instead of a plain white strip under the gold-light top strip. Scoped to
    fl-navbar, so the default light header is untouched. ---- */
 body.fl-on.fl-navbar header.site{
-  background:linear-gradient(180deg, rgba(42,36,30,.72), rgba(20,17,14,.66));
-  -webkit-backdrop-filter:blur(16px) saturate(165%);
-  backdrop-filter:blur(16px) saturate(165%);
-  border-bottom:1px solid rgba(255,221,150,.26);
+  position:sticky; isolation:isolate;
+  background:linear-gradient(180deg, rgba(42,36,30,.64), rgba(20,17,14,.56));
+  border-bottom:1px solid rgba(255,221,150,.3);
+  box-shadow:0 8px 24px -12px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08);
+  -webkit-backdrop-filter:blur(16px) saturate(170%);
+  backdrop-filter:blur(16px) saturate(170%);
+}
+/* The SAME golden sheen that sweeps the icon pill, now gliding across the whole
+   bar — this is what turns the flat grey band into frosted, shining glass. It
+   sits above the bar's own translucent fill (z-index:-1 in the isolated context)
+   but behind the logo/nav/search, exactly like the pill's ::before. */
+body.fl-on.fl-navbar header.site::before{
+  content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; overflow:hidden;
+  background:linear-gradient(115deg, transparent 32%, rgba(255,214,130,.26) 48%, rgba(255,186,74,.44) 54%, transparent 74%);
+  background-size:220% 100%; background-position:150% 0;
+  filter:hue-rotate(var(--fl-hue,0deg));
+  animation:flTileSheen var(--fl-speed,7s) ease-in-out infinite;
 }
 body.fl-on.fl-navbar header.site.scrolled{
-  background:linear-gradient(180deg, rgba(38,32,27,.88), rgba(16,14,12,.82));
-  box-shadow:0 10px 30px -18px rgba(0,0,0,.6);
-  border-bottom-color:rgba(255,221,150,.32);
+  background:linear-gradient(180deg, rgba(38,32,27,.86), rgba(16,14,12,.8));
+  box-shadow:0 10px 30px -16px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.08);
+  border-bottom-color:rgba(255,221,150,.34);
 }
 /* Logo wordmark goes light (the "TONIK" accent keeps its orange). */
 body.fl-on.fl-navbar header.site .logo .word{ color:#fff; }
