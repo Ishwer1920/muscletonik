@@ -3330,6 +3330,48 @@ body.fl-on.fl-navbar header.site .header-actions .act svg{ position:relative; z-
 body.fl-on.fl-navbar header.site .header-actions .act .count{ position:relative; z-index:3; }
 @keyframes flTileBeam{ to{ --fl-ang:360deg; } }
 @keyframes flTileSheen{ 0%{ background-position:155% 0; } 55%,100%{ background-position:-55% 0; } }
+
+/* ---- Festival navbar: the WHOLE header bar becomes the same dark frosted
+   glass as the icon pill, so the logo + nav strip reads as one cohesive glass
+   band instead of a plain white strip under the gold-light top strip. Scoped to
+   fl-navbar, so the default light header is untouched. ---- */
+body.fl-on.fl-navbar header.site{
+  background:linear-gradient(180deg, rgba(42,36,30,.72), rgba(20,17,14,.66));
+  -webkit-backdrop-filter:blur(16px) saturate(165%);
+  backdrop-filter:blur(16px) saturate(165%);
+  border-bottom:1px solid rgba(255,221,150,.26);
+}
+body.fl-on.fl-navbar header.site.scrolled{
+  background:linear-gradient(180deg, rgba(38,32,27,.88), rgba(16,14,12,.82));
+  box-shadow:0 10px 30px -18px rgba(0,0,0,.6);
+  border-bottom-color:rgba(255,221,150,.32);
+}
+/* Logo wordmark goes light (the "TONIK" accent keeps its orange). */
+body.fl-on.fl-navbar header.site .logo .word{ color:#fff; }
+/* Burger bars light so they stay visible on the dark glass. */
+body.fl-on.fl-navbar header.site .burger span{ background:#fff; }
+/* Nav links light, with a translucent gold-tinted hover instead of the light
+   peach pill used on the white header. */
+body.fl-on.fl-navbar header.site .nav-main a.nav-link{ color:rgba(255,255,255,.9); }
+body.fl-on.fl-navbar header.site .nav-main a.nav-link:hover,
+body.fl-on.fl-navbar header.site .nav-main .nav-item.open > a.nav-link{
+  color:#ffd98a;
+  background:rgba(255,255,255,.1);
+  box-shadow:inset 0 0 0 1px rgba(255,214,130,.3);
+  transform:translateY(-1px);
+}
+/* Search field becomes a translucent glass pill with light text. */
+body.fl-on.fl-navbar header.site .header-search{
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,221,150,.22);
+}
+body.fl-on.fl-navbar header.site .header-search input{ color:#fff; }
+body.fl-on.fl-navbar header.site .header-search input::placeholder{ color:rgba(255,255,255,.6); }
+body.fl-on.fl-navbar header.site .header-search:focus-within{
+  background:rgba(255,255,255,.16);
+  border-color:rgba(255,205,100,.6);
+}
+
 /* On tablet + narrower desktop the labelled tiles are too wide and crowd the nav
    links + search bar, so show COMPACT ICON-ONLY tiles here. Labels return on wide
    desktop (> 1500px) — the same point where the base site reveals "My Plans". */
