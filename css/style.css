@@ -219,7 +219,14 @@ header.site.scrolled{
 
 .nav-item .mega-menu .btn{margin-top:4px;}
 .nav-item .mega-menu .btn-sm{padding:10px 16px;}
-.header-search-wrap{flex:1;position:relative;min-width:160px;}
+/* Search is collapsed to a single icon in the header; clicking it drops the
+   search bar below the header (see .header-search-panel). */
+.header-search-wrap{flex:0 0 auto;position:relative;min-width:auto;}
+.header-search-toggle{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:999px;background:var(--gray);color:var(--text);flex-shrink:0;transition:background .2s var(--ease),color .2s var(--ease);}
+.header-search-toggle:hover{background:var(--primary-light);color:var(--primary);}
+.header-search-panel{position:absolute;left:0;right:0;top:100%;background:#fff;border-top:1px solid var(--border);box-shadow:0 22px 44px -26px rgba(17,17,17,.35);padding:14px 16px;z-index:210;}
+.header-search-panel[hidden]{display:none;}
+.header-search-panel-inner{position:relative;max-width:720px;margin:0 auto;}
 .header-search{display:flex;align-items:center;background:var(--gray);border-radius:999px;padding:5px 6px 5px 18px;width:100%;}
 .header-search input{flex:1;border:none;background:transparent;outline:none;font-size:14px;min-width:0;}
 .header-search button{background:var(--dark);color:#fff;border-radius:999px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -259,7 +266,9 @@ header.site.scrolled{
 @media (max-width:1199px){
   .nav-main{display:none;}
   .header-main{flex-wrap:wrap;}
-  .header-search-wrap{order:3;flex:1 1 100%;min-width:0;margin-top:8px;}
+  /* Search is just an icon now — keep it inline next to the actions instead of
+     stretching to its own full-width row. */
+  .header-search-wrap{order:0;flex:0 0 auto;min-width:auto;margin-top:0;}
   .burger{display:flex;}
 }
 /* Keep the rightmost mega-menu (Brands) from spilling past the viewport on
@@ -3386,6 +3395,14 @@ body.fl-on.fl-navbar header.site .header-search:focus-within{
   background:rgba(255,255,255,.16);
   border-color:rgba(255,205,100,.6);
 }
+/* Collapsed search icon + drop-down bar in festival mode: light icon on the
+   black strip, and a dark panel so the glass input stays legible. */
+body.fl-on.fl-navbar header.site .header-search-toggle{ background:rgba(255,255,255,.12); color:#fff; }
+body.fl-on.fl-navbar header.site .header-search-toggle:hover{ background:rgba(255,255,255,.2); color:#ffd98a; }
+body.fl-on.fl-navbar header.site .header-search-panel{
+  background:linear-gradient(180deg, rgba(18,16,14,.98), rgba(8,7,6,.98));
+  border-top-color:rgba(255,221,150,.26);
+}
 /* Drop the separate frosted pill from behind the four icons — the whole strip
    now carries the glass + shine, so the icons sit straight on it. Desktop only;
    the mobile bottom-nav bar (<=768px) keeps its own look untouched. */
@@ -3431,8 +3448,8 @@ body.fl-on.fl-navbar header.site .header-search:focus-within{
   body.fl-on.fl-navbar header.site .header-actions .act svg{ width:16px; height:16px; }
   body.fl-on.fl-navbar header.site .header-actions .act .act-label{ display:none; }
   body.fl-on.fl-navbar header.site .header-actions a.act{ font-size:0; line-height:0; }
-  /* search keeps its own full-width row below */
-  body.fl-on.fl-navbar header.site .header-search-wrap{ order:3; flex:1 1 100%; }
+  /* search icon pinned top-right; the bar drops below on tap */
+  body.fl-on.fl-navbar header.site .header-search-wrap{ position:absolute; right:12px; top:14px; order:0; flex:0 0 auto; }
 }
 
 /* ---- Brand / Logo area — a glowing golden frame around the logo, echoing the
@@ -3530,10 +3547,16 @@ body.fl-on.fl-categories .cat-card:nth-child(3n){ animation-delay:calc(var(--fl-
     margin: 0 auto;
     padding-top: 2px;
   }
+  /* Search icon pinned to the top-right of the mobile header; the search bar
+     drops down below the header when tapped. */
   .header-main .header-search-wrap {
-    order: 3;
-    flex: 1 1 100%;
-    margin-top: 10px;
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    order: 0;
+    flex: 0 0 auto;
+    margin: 0;
+    width: auto;
   }
 
   /* Fixed Bottom Navigation Bar */

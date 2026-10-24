@@ -1111,11 +1111,7 @@ function headerHTML() {
         <a class="nav-link nav-plans" href="my-plans.html">My Plans</a>
       </nav>
       <div class="header-search-wrap">
-        <form class="header-search" onsubmit="doSearch(event)" autocomplete="off">
-          <input type="text" id="searchInput" placeholder="Search whey, creatine, gainers..." oninput="handleSearchInput()" onkeydown="handleSearchKeydown(event)">
-          <button type="submit" aria-label="Search">${icon("search", 16)}</button>
-        </form>
-        <div class="search-suggest" id="searchSuggest"></div>
+        <button type="button" class="header-search-toggle" id="searchToggleBtn" aria-label="Search" aria-haspopup="true" aria-expanded="false" onclick="toggleSearchBar(event)">${icon("search", 22)}</button>
       </div>
       <div class="header-actions">
         <a class="act home-act" href="index.html">${icon("home", 22)}<span class="act-label">Home</span></a>
@@ -1126,6 +1122,15 @@ function headerHTML() {
           <div class="notif-menu" id="notifMenu" role="menu" aria-label="Notifications"></div>
         </div>
         <a class="act" href="login.html" id="headerAuthLink">${icon("adduser", 22)}<span class="act-label">Account</span></a>
+      </div>
+    </div>
+    <div class="header-search-panel" id="headerSearchPanel" hidden>
+      <div class="header-search-panel-inner">
+        <form class="header-search" onsubmit="doSearch(event)" autocomplete="off">
+          <input type="text" id="searchInput" placeholder="Search whey, creatine, gainers..." oninput="handleSearchInput()" onkeydown="handleSearchKeydown(event)">
+          <button type="submit" aria-label="Search">${icon("search", 16)}</button>
+        </form>
+        <div class="search-suggest" id="searchSuggest"></div>
       </div>
     </div>
   </header>
@@ -1929,18 +1934,45 @@ function updateSuggestHighlight(items) {
   if (suggestIndex >= 0) items[suggestIndex].scrollIntoView({ block: "nearest" });
 }
 document.addEventListener("click", function (e) {
-  const panel = document.getElementById("searchSuggest");
-  if (panel && !e.target.closest(".header-search-wrap")) panel.classList.remove("show");
+  // A click outside the search icon and the open search bar closes the bar
+  // (and its suggestions).
+  if (e.target.closest("#searchToggleBtn") || e.target.closest(".header-search-panel")) return;
+  closeSearchBar();
 });
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") {
     closeDrawer();
     closeCartDrawer();
     closeQuickView();
-    const panel = document.getElementById("searchSuggest");
-    if (panel) panel.classList.remove("show");
+    closeSearchBar();
   }
 });
+
+// The header search is collapsed to an icon; clicking it drops the search bar
+// below the header (works the same on mobile and desktop). Focus the field on
+// open so the shopper can type straight away.
+function toggleSearchBar(e) {
+  if (e) e.preventDefault();
+  const panel = document.getElementById("headerSearchPanel");
+  const btn = document.getElementById("searchToggleBtn");
+  if (!panel) return;
+  if (panel.hasAttribute("hidden")) {
+    panel.removeAttribute("hidden");
+    if (btn) btn.setAttribute("aria-expanded", "true");
+    const input = document.getElementById("searchInput");
+    if (input) setTimeout(function () { input.focus(); }, 30);
+  } else {
+    closeSearchBar();
+  }
+}
+function closeSearchBar() {
+  const panel = document.getElementById("headerSearchPanel");
+  const btn = document.getElementById("searchToggleBtn");
+  const sug = document.getElementById("searchSuggest");
+  if (panel) panel.setAttribute("hidden", "");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  if (sug) sug.classList.remove("show");
+}
 
 function doSearch(e) {
   e.preventDefault();
