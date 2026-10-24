@@ -3340,7 +3340,10 @@ body.fl-on.fl-navbar header.site .header-actions .act:hover{
   transform:translateY(-1px);
 }
 body.fl-on.fl-navbar header.site .header-actions .act svg{ position:relative; z-index:2; }
-body.fl-on.fl-navbar header.site .header-actions .act .count{ position:relative; z-index:3; }
+/* Keep the count badge pinned to the icon corner (absolute, from the base
+   rule) and just raise it above the strip — the old position:relative here made
+   the badge flow inline to the RIGHT of the cart icon. */
+body.fl-on.fl-navbar header.site .header-actions .act .count{ z-index:3; }
 @keyframes flTileBeam{ to{ --fl-ang:360deg; } }
 @keyframes flTileSheen{ 0%{ background-position:155% 0; } 55%,100%{ background-position:-55% 0; } }
 
