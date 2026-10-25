@@ -179,7 +179,25 @@ def normalize_bmi_snapshot(raw):
     }
 
 
+def _is_punjab(state_value):
+    """Cash on Delivery only ships within Punjab. Accepts the common spellings
+    and the ISO code ("Punjab", "panjab", "PB") so a trailing space or casing
+    can't block a genuine Punjab address; everything else is outside the zone."""
+    normalized = "".join(ch for ch in str(state_value or "").lower() if ch.isalpha())
+    return normalized in ("punjab", "panjab", "pb")
+
+
 def assert_cod_allowed(session):
+    # COD is delivered only in Punjab — reject it for any other shipping state so
+    # the rule holds even if the client-side guard is bypassed.
+    state = (session.get("shippingAddress") or {}).get("state")
+    if not _is_punjab(state):
+        raise ApiError(
+            "Cash on Delivery is available only for delivery addresses in Punjab. "
+            "Please pay online to continue.",
+            400,
+        )
+
     if not any(li["product"].digital for li in session["items"]):
         return
     raise ApiError(

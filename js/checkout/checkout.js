@@ -37,6 +37,51 @@
     els.coupon = els.form ? els.form.querySelector('input[name="couponCode"]') : null;
     els.submit = els.form ? els.form.querySelector('button[type="submit"]') : null;
     els.codDesc = document.getElementById("codDesc");
+    els.state = els.form ? els.form.querySelector('input[name="state"]') : null;
+    els.codMethod = document.getElementById("codMethod");
+    els.codNote = document.getElementById("codNote");
+    els.codRadio = els.form ? els.form.querySelector('input[name="paymentMode"][value="cod"]') : null;
+    els.onlineRadio = els.form ? els.form.querySelector('input[name="paymentMode"][value="online"]') : null;
+    els.paymentMethods = document.getElementById("paymentMethods");
+  }
+
+  // Cash on Delivery only ships within Punjab. Accepts the common spellings and
+  // the ISO code so "Punjab", "panjab" and "PB" all count; anything else is
+  // treated as outside the COD zone.
+  function isPunjab(stateValue) {
+    var s = String(stateValue || "").toLowerCase().replace(/[^a-z]/g, "");
+    return s === "punjab" || s === "panjab" || s === "pb";
+  }
+
+  // Keep COD in step with the typed state. COD is delivered only in Punjab, so
+  // outside Punjab we grey the option, show the note, and — if it was already
+  // selected — fall back to paying online so no undeliverable COD order slips
+  // through. The option stays clickable so the shopper gets a clear message.
+  function updateCodAvailability() {
+    if (!els.codMethod || !els.codRadio) return;
+    var allowed = els.state ? isPunjab(els.state.value) : false;
+    if (allowed) {
+      els.codMethod.classList.remove("co-pay-method-locked");
+      if (els.codNote) { els.codNote.hidden = true; els.codNote.classList.remove("co-pay-note-alert"); }
+    } else {
+      if (els.codRadio.checked && els.onlineRadio) els.onlineRadio.checked = true;
+      els.codMethod.classList.add("co-pay-method-locked");
+      if (els.codNote) els.codNote.hidden = false;
+    }
+  }
+
+  // Refuse a COD selection outside Punjab: revert to Pay Online and flag the
+  // note so the shopper is told why COD can't be used for their address.
+  function onPaymentModeChange() {
+    if (!els.codRadio || !els.codRadio.checked) return;
+    var allowed = els.state ? isPunjab(els.state.value) : false;
+    if (!allowed) {
+      if (els.onlineRadio) els.onlineRadio.checked = true;
+      if (els.codNote) {
+        els.codNote.hidden = false;
+        els.codNote.classList.add("co-pay-note-alert");
+      }
+    }
   }
 
   function paymentMode() {
@@ -290,6 +335,14 @@
     var addressCheck = validation.validateAddress(readAddress());
     if (!addressCheck.ok) { ui.showErrors(els.message, addressCheck.errors); return; }
 
+    // Final guard: never open the confirm flow with COD for a non-Punjab
+    // address, even if the radio state was tampered with.
+    if (paymentMode() === "cod" && !isPunjab(readAddress().state)) {
+      onPaymentModeChange();
+      ui.showErrors(els.message, "Cash on Delivery is available only for delivery addresses in Punjab. Please choose Pay Online.");
+      return;
+    }
+
     var estimate = utils.deliveryEstimate(3, 5);
     var mode = paymentMode();
     // Preview of what's charged now. COD charges nothing up front — the whole
@@ -357,6 +410,19 @@
       }
       if (els.coupon.value) refreshCoupon();
     }
+
+    // COD is Punjab-only: keep the option in sync with the typed state, and
+    // refuse a COD pick outside Punjab the moment it's made.
+    if (els.state) {
+      els.state.addEventListener("input", updateCodAvailability);
+      els.state.addEventListener("change", updateCodAvailability);
+      els.state.addEventListener("blur", updateCodAvailability);
+    }
+    if (els.paymentMethods) {
+      els.paymentMethods.addEventListener("change", onPaymentModeChange);
+    }
+    updateCodAvailability();
+
     els.form.addEventListener("submit", onSubmit);
   }
 

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261110">
+<link rel="stylesheet" href="css/style.css?v=20261119">
 <!-- Meta Pixel Code -->
 <script>
 !function(f,b,e,v,n,t,s)
@@ -201,13 +201,14 @@ src="https://www.facebook.com/tr?id=1080942901285554&ev=PageView&noscript=1"
                   <span class="co-pay-method-desc">Pay the full amount now via UPI, card, or netbanking.</span>
                 </span>
               </label>
-              <label class="co-pay-method">
+              <label class="co-pay-method" id="codMethod">
                 <input type="radio" name="paymentMode" value="cod">
                 <span class="co-pay-method-body">
                   <span class="co-pay-method-title">Cash on Delivery <span class="cod-free-badge">FREE</span></span>
                   <span class="co-pay-method-desc" id="codDesc">No COD fee and nothing to pay now — the full amount is paid in cash on delivery.</span>
                 </span>
               </label>
+              <p class="co-pay-note" id="codNote" hidden>Cash on Delivery is available only for delivery addresses in Punjab. Please choose Pay Online for other states.</p>
             </fieldset>
 
             <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px;">Review &amp; Continue</button>
@@ -233,15 +234,15 @@ src="https://www.facebook.com/tr?id=1080942901285554&ev=PageView&noscript=1"
 <footer class="site" id="site-footer"></footer>
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script src="js/config.js?v=20261110"></script>
-<script src="js/data.js?v=20261110"></script>
-<script src="js/core.js?v=20261110"></script>
-<script src="js/checkout/utils.js?v=20261110"></script>
-<script src="js/checkout/storage.js?v=20261110"></script>
-<script src="js/checkout/validation.js?v=20261110"></script>
-<script src="js/checkout/cart.js?v=20261110"></script>
-<script src="js/checkout/payment.js?v=20261110"></script>
-<script src="js/checkout/ui.js?v=20261110"></script>
-<script src="js/checkout/checkout.js?v=20261110"></script>
+<script src="js/config.js?v=20261113"></script>
+<script src="js/data.js?v=20261113"></script>
+<script src="js/core.js?v=20261116"></script>
+<script src="js/checkout/utils.js?v=20261113"></script>
+<script src="js/checkout/storage.js?v=20261113"></script>
+<script src="js/checkout/validation.js?v=20261113"></script>
+<script src="js/checkout/cart.js?v=20261113"></script>
+<script src="js/checkout/payment.js?v=20261113"></script>
+<script src="js/checkout/ui.js?v=20261113"></script>
+<script src="js/checkout/checkout.js?v=20261113"></script>
 </body>
 </html>

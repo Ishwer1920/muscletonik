@@ -463,9 +463,9 @@ function updateAuthUI() {
       // renderLayout (after the catalogue arrives) doesn't replay it.
       var animate = !window.__authVerifyPlayed;
       window.__authVerifyPlayed = true;
-      link.innerHTML = verifiedBadgeHTML(animate) + (user.name ? user.name.split(" ")[0] : "Account");
+      link.innerHTML = verifiedBadgeHTML(animate) + '<span class="act-label">' + (user.name ? user.name.split(" ")[0] : "Account") + '</span>';
     } else {
-      link.innerHTML = icon("adduser", 20) + "Login";
+      link.innerHTML = icon("adduser", 22) + '<span class="act-label">Account</span>';
     }
   }
   if (mobileLink) {
@@ -663,7 +663,8 @@ const ICONS = {
   wishlistdoc: '<path d="M13.8 3H6.6A1.6 1.6 0 0 0 5 4.6v14.8A1.6 1.6 0 0 0 6.6 21h10.8a1.6 1.6 0 0 0 1.6-1.6V8z"/><path d="M13.8 3v5h5"/><path d="M12 10.5c-.9-1.3-3-.9-3 .8 0 1.2 1.7 2 3 3 1.3-1 3-1.8 3-3 0-1.7-2.1-2.1-3-.8Z"/><path d="M8.6 16.4h6.8M8.6 18.7h4.4"/>',
   carttag: '<circle cx="9" cy="20.3" r="1.4"/><circle cx="17.6" cy="20.3" r="1.4"/><path d="M2.5 4h2.3l2.3 10.9a1.6 1.6 0 0 0 1.6 1.3h8.2a1.6 1.6 0 0 0 1.6-1.3l.55-2.8H7.4"/><path d="M14.3 3.2h3.3a1 1 0 0 1 .7.3l2.2 2.2a1 1 0 0 1 0 1.4l-2.6 2.6a1 1 0 0 1-1.4 0l-2.2-2.2a1 1 0 0 1-.3-.7V4.2a1 1 0 0 1 1-1z"/><circle cx="16.3" cy="5.3" r=".7"/>',
   alertbell: '<path d="M12 2.6a1.7 1.7 0 0 0-1.6 2.2A6 6 0 0 0 6 10.6V14l-1.8 2.8a.6.6 0 0 0 .5.9h14.6a.6.6 0 0 0 .5-.9L18 14v-3.4a6 6 0 0 0-4.4-5.8A1.7 1.7 0 0 0 12 2.6Z"/><path d="M9.8 18.8a2.2 2.2 0 0 0 4.4 0"/>',
-  x: '<path d="M18 6 6 18M6 6l12 12"/>'
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'
 };
 
 /* The signed-in profile shows a blue "verified" badge. verifiedBadgeHTML(true)
@@ -1110,20 +1111,26 @@ function headerHTML() {
         <a class="nav-link nav-plans" href="my-plans.html">My Plans</a>
       </nav>
       <div class="header-search-wrap">
+        <button type="button" class="header-search-toggle" id="searchToggleBtn" aria-label="Search" aria-haspopup="true" aria-expanded="false" onclick="toggleSearchBar(event)">${icon("search", 22)}</button>
+      </div>
+      <div class="header-actions">
+        <a class="act home-act" href="index.html">${icon("home", 22)}<span class="act-label">Home</span></a>
+        <a class="act" href="wishlist.html">${icon("heart", 22)}<span class="count wish-count" hidden>0</span><span class="act-label">Wishlist</span></a>
+        <a class="act" href="cart.html" id="cartTriggerBtn" onclick="event.preventDefault();openCartDrawer();">${icon("cart", 22)}<span class="count cart-count" hidden>0</span><span class="act-label">Cart</span></a>
+        <div class="act act-notif" id="notifWrap">
+          <button type="button" class="act-notif-btn" id="notifBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications" onclick="toggleNotifMenu(event)">${icon("alertbell", 22)}<span class="count notif-count" id="notifCount" hidden>0</span><span class="act-label">Alerts</span></button>
+          <div class="notif-menu" id="notifMenu" role="menu" aria-label="Notifications"></div>
+        </div>
+        <a class="act" href="login.html" id="headerAuthLink">${icon("adduser", 22)}<span class="act-label">Account</span></a>
+      </div>
+    </div>
+    <div class="header-search-panel" id="headerSearchPanel" hidden>
+      <div class="header-search-panel-inner">
         <form class="header-search" onsubmit="doSearch(event)" autocomplete="off">
           <input type="text" id="searchInput" placeholder="Search whey, creatine, gainers..." oninput="handleSearchInput()" onkeydown="handleSearchKeydown(event)">
           <button type="submit" aria-label="Search">${icon("search", 16)}</button>
         </form>
         <div class="search-suggest" id="searchSuggest"></div>
-      </div>
-      <div class="header-actions">
-        <a class="act" href="login.html" id="headerAuthLink">${icon("adduser", 20)}Login</a>
-        <a class="act" href="wishlist.html">${icon("heart", 20)}<span class="count wish-count" hidden>0</span><span class="act-label">Wishlist</span></a>
-        <a class="act" href="cart.html" id="cartTriggerBtn" onclick="event.preventDefault();openCartDrawer();">${icon("cart", 20)}<span class="count cart-count" hidden>0</span><span class="act-label">Cart</span></a>
-        <div class="act act-notif" id="notifWrap">
-          <button type="button" class="act-notif-btn" id="notifBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications" onclick="toggleNotifMenu(event)">${icon("alertbell", 20)}<span class="count notif-count" id="notifCount" hidden>0</span><span class="act-label">Alerts</span></button>
-          <div class="notif-menu" id="notifMenu" role="menu" aria-label="Notifications"></div>
-        </div>
       </div>
     </div>
   </header>
@@ -1600,6 +1607,16 @@ function renderLayout() {
       window.location.href = "/index.html";
     });
   }
+
+  // Highlight active mobile bottom navigation
+  const path = window.location.pathname.split("/").pop() || "index.html";
+  document.querySelectorAll(".header-actions .act").forEach(link => {
+    const href = link.getAttribute("href") || link.href || "";
+    if (href.includes(path) || (path === "dashboard.html" && href.includes("login.html")) || (path === "profile.html" && href.includes("dashboard.html"))) {
+      link.style.color = "var(--primary)";
+    }
+  });
+
   initReveal();
 }
 
@@ -1917,18 +1934,45 @@ function updateSuggestHighlight(items) {
   if (suggestIndex >= 0) items[suggestIndex].scrollIntoView({ block: "nearest" });
 }
 document.addEventListener("click", function (e) {
-  const panel = document.getElementById("searchSuggest");
-  if (panel && !e.target.closest(".header-search-wrap")) panel.classList.remove("show");
+  // A click outside the search icon and the open search bar closes the bar
+  // (and its suggestions).
+  if (e.target.closest("#searchToggleBtn") || e.target.closest(".header-search-panel")) return;
+  closeSearchBar();
 });
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") {
     closeDrawer();
     closeCartDrawer();
     closeQuickView();
-    const panel = document.getElementById("searchSuggest");
-    if (panel) panel.classList.remove("show");
+    closeSearchBar();
   }
 });
+
+// The header search is collapsed to an icon; clicking it drops the search bar
+// below the header (works the same on mobile and desktop). Focus the field on
+// open so the shopper can type straight away.
+function toggleSearchBar(e) {
+  if (e) e.preventDefault();
+  const panel = document.getElementById("headerSearchPanel");
+  const btn = document.getElementById("searchToggleBtn");
+  if (!panel) return;
+  if (panel.hasAttribute("hidden")) {
+    panel.removeAttribute("hidden");
+    if (btn) btn.setAttribute("aria-expanded", "true");
+    const input = document.getElementById("searchInput");
+    if (input) setTimeout(function () { input.focus(); }, 30);
+  } else {
+    closeSearchBar();
+  }
+}
+function closeSearchBar() {
+  const panel = document.getElementById("headerSearchPanel");
+  const btn = document.getElementById("searchToggleBtn");
+  const sug = document.getElementById("searchSuggest");
+  if (panel) panel.setAttribute("hidden", "");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  if (sug) sug.classList.remove("show");
+}
 
 function doSearch(e) {
   e.preventDefault();

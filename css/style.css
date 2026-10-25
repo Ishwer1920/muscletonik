@@ -219,7 +219,14 @@ header.site.scrolled{
 
 .nav-item .mega-menu .btn{margin-top:4px;}
 .nav-item .mega-menu .btn-sm{padding:10px 16px;}
-.header-search-wrap{flex:1;position:relative;min-width:160px;}
+/* Search is collapsed to a single icon in the header; clicking it drops the
+   search bar below the header (see .header-search-panel). */
+.header-search-wrap{flex:0 0 auto;position:relative;min-width:auto;}
+.header-search-toggle{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:999px;background:var(--gray);color:var(--text);flex-shrink:0;transition:background .2s var(--ease),color .2s var(--ease);}
+.header-search-toggle:hover{background:var(--primary-light);color:var(--primary);}
+.header-search-panel{position:absolute;left:0;right:0;top:100%;background:#fff;border-top:1px solid var(--border);box-shadow:0 22px 44px -26px rgba(17,17,17,.35);padding:14px 16px;z-index:210;}
+.header-search-panel[hidden]{display:none;}
+.header-search-panel-inner{position:relative;max-width:720px;margin:0 auto;}
 .header-search{display:flex;align-items:center;background:var(--gray);border-radius:999px;padding:5px 6px 5px 18px;width:100%;}
 .header-search input{flex:1;border:none;background:transparent;outline:none;font-size:14px;min-width:0;}
 .header-search button{background:var(--dark);color:#fff;border-radius:999px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -259,7 +266,9 @@ header.site.scrolled{
 @media (max-width:1199px){
   .nav-main{display:none;}
   .header-main{flex-wrap:wrap;}
-  .header-search-wrap{order:3;flex:1 1 100%;min-width:0;margin-top:8px;}
+  /* Search is just an icon now — keep it inline next to the actions instead of
+     stretching to its own full-width row. */
+  .header-search-wrap{order:0;flex:0 0 auto;min-width:auto;margin-top:0;}
   .burger{display:flex;}
 }
 /* Keep the rightmost mega-menu (Brands) from spilling past the viewport on
@@ -1709,6 +1718,10 @@ body.preview-mode header.site{top:44px;}
 .otp-dev{margin:4px 0 10px;padding:8px 10px;border:1px dashed var(--primary);border-radius:8px;background:#fff;color:var(--primary);font-weight:700;font-size:13px;}
 #otpCode{letter-spacing:8px;font-weight:700;font-size:18px;text-align:center;}
 .co-pay-method-desc{font-size:12.5px;color:var(--text-light);line-height:1.45;}
+.co-pay-note{margin:10px 0 0;font-size:12px;color:var(--text-light);line-height:1.45;}
+.co-pay-note[hidden]{display:none;}
+.co-pay-note-alert{color:#d93b3b;font-weight:600;}
+.co-pay-method-locked{opacity:.55;}
 .checkout-secure-note{display:flex;align-items:center;gap:7px;justify-content:center;margin-top:12px;font-size:12.5px;color:var(--text-light);}
 .checkout-secure-note svg{color:var(--green);flex-shrink:0;}
 
@@ -2821,7 +2834,7 @@ a.notif-item.is-unread:hover{background:#ffeeda;}
 .notif-ic{flex:0 0 auto;margin-top:1px;color:var(--primary);display:flex;align-items:center;justify-content:center;min-width:18px;font-size:15px;line-height:1;}
 .notif-text{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .notif-text b{font-size:13px;font-weight:700;line-height:1.3;display:flex;align-items:center;gap:7px;}
-.notif-text span{font-size:12.5px;color:var(--text-light);line-height:1.45;}
+.notif-text span{font-size:12.5px;color:var(--text-light);line-height:1.45;white-space:pre-line;}
 .notif-text em{font-style:normal;font-size:11px;color:var(--text-light);font-weight:600;letter-spacing:.02em;}
 .notif-dot{width:7px;height:7px;border-radius:50%;background:var(--primary);flex:0 0 auto;}
 .notif-clear{background:none;border:none;color:var(--primary);font-weight:700;font-size:12px;cursor:pointer;padding:0;}
@@ -2948,7 +2961,7 @@ a.notif-item.is-unread:hover{background:#ffeeda;}
 .mt-ip-ic{color:var(--primary);display:flex;align-items:center;}
 .mt-ip-tag{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--primary);}
 .mt-ip-title{font-family:'Poppins',sans-serif;font-weight:700;font-size:15px;line-height:1.3;color:var(--dark);padding-right:26px;}
-.mt-ip-desc{font-size:13px;color:var(--text-light);line-height:1.5;margin-top:5px;}
+.mt-ip-desc{font-size:13px;color:var(--text-light);line-height:1.5;margin-top:5px;white-space:pre-line;}
 a.mt-important-pop:hover .mt-ip-title{color:var(--primary);}
 .mt-ip-bar{height:4px;background:var(--gray-mid);border-radius:999px;margin:14px -16px 0;overflow:hidden;}
 .mt-ip-bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff9231,#ff7a00);
@@ -3308,7 +3321,9 @@ body.fl-on.fl-navbar header.site .header-actions .act .act-label{ color:rgba(255
    widths (it was overlapping "My Plans"): the nav holds its width and the search
    shrinks instead. Scoped to festival mode so the base site layout is untouched. */
 body.fl-on.fl-navbar header.site .nav-main{ flex-shrink:0; }
-body.fl-on.fl-navbar header.site .header-search-wrap{ min-width:120px; }
+/* Search is a single icon now, so the wrap shrinks to it (the old min-width was
+   sized for the full inline search bar). */
+body.fl-on.fl-navbar header.site .header-search-wrap{ min-width:auto; }
 /* HOVER OVER THE GROUP = a second, stronger frosted blur + glow on the whole pill. */
 body.fl-on.fl-navbar header.site .header-actions:hover{
   -webkit-backdrop-filter:blur(18px) saturate(190%) brightness(1.08);
@@ -3325,9 +3340,110 @@ body.fl-on.fl-navbar header.site .header-actions .act:hover{
   transform:translateY(-1px);
 }
 body.fl-on.fl-navbar header.site .header-actions .act svg{ position:relative; z-index:2; }
-body.fl-on.fl-navbar header.site .header-actions .act .count{ position:relative; z-index:3; }
+/* Keep the count badge pinned to the icon corner (absolute, from the base
+   rule) and just raise it above the strip — the old position:relative here made
+   the badge flow inline to the RIGHT of the cart icon. */
+body.fl-on.fl-navbar header.site .header-actions .act .count{ z-index:3; }
 @keyframes flTileBeam{ to{ --fl-ang:360deg; } }
 @keyframes flTileSheen{ 0%{ background-position:155% 0; } 55%,100%{ background-position:-55% 0; } }
+
+/* ---- Festival navbar: the WHOLE header bar becomes the same dark frosted
+   glass as the icon pill, so the logo + nav strip reads as one cohesive glass
+   band instead of a plain white strip under the gold-light top strip. Scoped to
+   fl-navbar, so the default light header is untouched. ---- */
+body.fl-on.fl-navbar header.site{
+  position:sticky; isolation:isolate;
+  background:linear-gradient(180deg, rgba(18,16,14,.97), rgba(8,7,6,.97));
+  border-bottom:1px solid rgba(255,221,150,.3);
+  box-shadow:0 8px 24px -12px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.07);
+  -webkit-backdrop-filter:blur(16px) saturate(170%);
+  backdrop-filter:blur(16px) saturate(170%);
+}
+/* The SAME golden sheen that sweeps the icon pill, now gliding across the WHOLE
+   black strip — this is the shine. It sits above the strip's own fill
+   (z-index:-1 in the isolated context) but behind the logo/nav/search, exactly
+   like the pill's ::before. */
+body.fl-on.fl-navbar header.site::before{
+  content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; overflow:hidden;
+  background:linear-gradient(115deg, transparent 28%, rgba(255,214,130,.34) 48%, rgba(255,186,74,.58) 54%, transparent 78%);
+  background-size:220% 100%; background-position:150% 0;
+  filter:hue-rotate(var(--fl-hue,0deg));
+  animation:flTileSheen var(--fl-speed,7s) ease-in-out infinite;
+}
+body.fl-on.fl-navbar header.site.scrolled{
+  background:linear-gradient(180deg, rgba(13,11,10,.98), rgba(6,5,4,.98));
+  box-shadow:0 10px 30px -16px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.07);
+  border-bottom-color:rgba(255,221,150,.34);
+}
+/* Logo wordmark goes light (the "TONIK" accent keeps its orange). */
+body.fl-on.fl-navbar header.site .logo .word{ color:#fff; }
+/* Burger bars light so they stay visible on the dark glass. */
+body.fl-on.fl-navbar header.site .burger{ background:rgba(255,255,255,.12); }
+body.fl-on.fl-navbar header.site .burger span{ background:#fff; }
+/* Nav links light, with a translucent gold-tinted hover instead of the light
+   peach pill used on the white header. */
+body.fl-on.fl-navbar header.site .nav-main a.nav-link{ color:rgba(255,255,255,.9); }
+body.fl-on.fl-navbar header.site .nav-main a.nav-link:hover,
+body.fl-on.fl-navbar header.site .nav-main .nav-item.open > a.nav-link{
+  color:#ffd98a;
+  background:rgba(255,255,255,.1);
+  box-shadow:inset 0 0 0 1px rgba(255,214,130,.3);
+  transform:translateY(-1px);
+}
+/* Search field becomes a translucent glass pill with light text. */
+body.fl-on.fl-navbar header.site .header-search{
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,221,150,.22);
+}
+body.fl-on.fl-navbar header.site .header-search input{ color:#fff; }
+body.fl-on.fl-navbar header.site .header-search input::placeholder{ color:rgba(255,255,255,.6); }
+body.fl-on.fl-navbar header.site .header-search:focus-within{
+  background:rgba(255,255,255,.16);
+  border-color:rgba(255,205,100,.6);
+}
+/* Collapsed search icon + drop-down bar in festival mode: light icon on the
+   black strip, and a dark panel so the glass input stays legible. */
+body.fl-on.fl-navbar header.site .header-search-toggle{ background:rgba(255,255,255,.12); color:#fff; }
+body.fl-on.fl-navbar header.site .header-search-toggle:hover{ background:rgba(255,255,255,.2); color:#ffd98a; }
+body.fl-on.fl-navbar header.site .header-search-panel{
+  background:linear-gradient(180deg, rgba(18,16,14,.98), rgba(8,7,6,.98));
+  border-top-color:rgba(255,221,150,.26);
+}
+
+/* ---- Mobile: the header holds a backdrop-filter, which makes it the
+   containing block for its position:fixed children — that was pinning the
+   fixed bottom nav (.header-actions) to the TOP of the header instead of the
+   viewport bottom, piling the icons over the logo. Drop the filter (and the
+   festival shine that needs the isolated context) on phones; the header bg is
+   opaque enough that the blur isn't missed, and the bottom nav now anchors to
+   the viewport. ---- */
+@media (max-width:768px){
+  header.site{ -webkit-backdrop-filter:none; backdrop-filter:none; background:#fff; }
+  body.fl-on.fl-navbar header.site{
+    isolation:auto;
+    -webkit-backdrop-filter:none; backdrop-filter:none;
+    background:linear-gradient(180deg, #16130f, #0a0908);
+  }
+  body.fl-on.fl-navbar header.site::before{ display:none; }
+}
+/* Drop the separate frosted pill from behind the four icons — the whole strip
+   now carries the glass + shine, so the icons sit straight on it. Desktop only;
+   the mobile bottom-nav bar (<=768px) keeps its own look untouched. */
+@media (min-width:769px){
+  body.fl-on.fl-navbar header.site .header-actions,
+  body.fl-on.fl-navbar header.site .header-actions:hover{
+    background:none;
+    border:0;
+    box-shadow:none;
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+    padding:0;
+    gap:10px;
+  }
+  body.fl-on.fl-navbar header.site .header-actions::before,
+  body.fl-on.fl-navbar header.site .header-actions::after{ display:none; }
+}
+
 /* On tablet + narrower desktop the labelled tiles are too wide and crowd the nav
    links + search bar, so show COMPACT ICON-ONLY tiles here. Labels return on wide
    desktop (> 1500px) — the same point where the base site reveals "My Plans". */
@@ -3355,8 +3471,8 @@ body.fl-on.fl-navbar header.site .header-actions .act .count{ position:relative;
   body.fl-on.fl-navbar header.site .header-actions .act svg{ width:16px; height:16px; }
   body.fl-on.fl-navbar header.site .header-actions .act .act-label{ display:none; }
   body.fl-on.fl-navbar header.site .header-actions a.act{ font-size:0; line-height:0; }
-  /* search keeps its own full-width row below */
-  body.fl-on.fl-navbar header.site .header-search-wrap{ order:3; flex:1 1 100%; }
+  /* search icon pinned top-right; the bar drops below on tap */
+  body.fl-on.fl-navbar header.site .header-search-wrap{ position:absolute; right:12px; top:14px; order:0; flex:0 0 auto; }
 }
 
 /* ---- Brand / Logo area — a glowing golden frame around the logo, echoing the
@@ -3425,4 +3541,157 @@ body.fl-on.fl-categories .cat-card:nth-child(3n){ animation-delay:calc(var(--fl-
   body.fl-on.fl-brand header.site .logo::before,
   body.fl-on.fl-search header.site .header-search,
   body.fl-on.fl-categories .cat-card{ animation:none !important; }
+}
+
+/* ===========================================================
+   NATIVE APP MOBILE UI
+   =========================================================== */
+@media (min-width: 769px) {
+  .header-actions .home-act {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Hide the topbar completely on mobile app */
+  .topbar { display: none !important; }
+
+  .header-main {
+    position: relative;
+    flex-wrap: wrap;
+    justify-content: center !important;
+    padding-top: 14px;
+    padding-bottom: 12px;
+  }
+  /* Hamburger pinned top-left so the nav menu (Categories, Products, Brands…)
+     stays reachable on mobile — it opens the drawer that lists them all. */
+  .header-main .burger {
+    display: flex !important;
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+  }
+  .header-main .logo {
+    margin: 0 auto;
+    padding-top: 2px;
+  }
+  /* Search icon pinned to the top-right of the mobile header; the search bar
+     drops down below the header when tapped. */
+  .header-main .header-search-wrap {
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    order: 0;
+    flex: 0 0 auto;
+    margin: 0;
+    width: auto;
+  }
+
+  /* Fixed Bottom Navigation Bar */
+  .header-actions {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 900;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: rgba(20, 22, 26, 0.85);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+    padding: 10px 8px calc(10px + env(safe-area-inset-bottom, 0px));
+    gap: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Reset festival overrides for bottom nav */
+  body.fl-on.fl-navbar header.site .header-actions {
+    position: fixed;
+    border-radius: 0;
+    background: rgba(20, 22, 26, 0.85) !important;
+  }
+  body.fl-on.fl-navbar header.site .header-actions::before,
+  body.fl-on.fl-navbar header.site .header-actions::after {
+    display: none !important;
+  }
+  body.fl-on.fl-navbar header.site .header-actions .act {
+    background: transparent !important;
+  }
+
+  .header-actions a.act,
+  .header-actions .act-notif {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: #a0a5ad !important;
+    text-decoration: none;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    margin: 0;
+    padding: 4px 0 !important;
+  }
+
+  .header-actions .act-notif-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: inherit;
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  .header-actions a.act svg,
+  .header-actions .act-notif-btn svg {
+    width: 24px !important;
+    height: 24px !important;
+    margin-bottom: 2px;
+  }
+
+  .header-actions a.act .act-label,
+  .header-actions .act-notif-btn .act-label {
+    display: block !important;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .header-actions a.act:hover,
+  .header-actions a.act:active,
+  .header-actions .act-notif-btn:hover,
+  .header-actions .act-notif-btn:active {
+    color: #ff7a00 !important;
+    transform: none !important;
+  }
+
+  body {
+    padding-bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .notif-menu {
+    top: auto !important;
+    bottom: calc(100% + 15px) !important;
+    right: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+
+  @media (max-width: 400px) {
+    .notif-menu {
+      left: 0 !important;
+      right: 0 !important;
+      transform: none !important;
+      width: calc(100vw - 32px) !important;
+      margin: 0 16px !important;
+    }
+  }
 }
