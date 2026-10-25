@@ -5,6 +5,7 @@ from rest_framework.response import Response
 
 from apps.audit.utils import write_audit
 from apps.cms.models import SiteSetting
+from apps.core import app_promo
 from apps.core.permissions import RequireAdminPanel, RequirePermission
 from apps.core.serialization import to_jsonable
 
@@ -46,6 +47,10 @@ def _sanitize_festival_lights(value):
 # Per-key server-side sanitizers for appearance settings that feed the UI.
 _SETTING_SANITIZERS = {
     "rgbLight": _sanitize_festival_lights,
+    # Mobile-app promotion card / floating icon (Admin -> App Settings). Full
+    # schema, bounds and URL safety live in apps.core.app_promo so the public
+    # /api/catalog projection stays in step with what is stored here.
+    "appPromo": app_promo.sanitize,
 }
 
 

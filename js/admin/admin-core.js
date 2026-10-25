@@ -41,6 +41,7 @@ const AdminShell = (() => {
     team: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     audit_logs: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>',
     settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 6.6 19l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4 12H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 5 6.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 12 4V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 21 12h.1"/></svg>',
+    app_promo: '<svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M12 18h.01"/><path d="M9 6h6"/></svg>',
     menu: '<svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>',
     search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
     chevron: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
@@ -81,7 +82,10 @@ const AdminShell = (() => {
       // The older Banners page still edits the legacy hero/brand-strip JSON.
       { key: "slideshow", perm: "settings", label: "Slideshow", href: "/admin/slideshow.html", icon: "content", built: true },
       // Website announcements shown in the storefront notification bell.
-      { key: "alerts", perm: "settings", label: "Alerts", href: "/admin/alerts.html", icon: "bell", built: true }
+      { key: "alerts", perm: "settings", label: "Alerts", href: "/admin/alerts.html", icon: "bell", built: true },
+      // Mobile-app promotion (floating card + icon) shown across the storefront.
+      // Gated on "settings" — the permission its SiteSetting endpoints require.
+      { key: "app_settings", perm: "settings", label: "App Settings", href: "/admin/app-settings.html", icon: "app_promo", built: true }
     ]},
     { group: "Administration", items: [
       { key: "team", label: "Team & Roles", href: "/admin/team.html", icon: "team", built: true },

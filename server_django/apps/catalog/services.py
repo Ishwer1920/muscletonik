@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from apps.checkout import pricing
 from apps.cms.models import CmsContent, SiteSetting
+from apps.core import app_promo
 from apps.core.serialization import to_jsonable
 
 from . import fixtures, taxonomy
@@ -316,6 +317,11 @@ def get_catalog():
         # draped garland on the navbar. {enabled, mode:"festival"}. This replaced
         # the old RGB Light / Navbar Neon / Search Glow lighting options.
         "rgbLight": settings.get("rgbLight") or {},
+        # Mobile-app promotion (Admin -> App Settings). Only the safe display
+        # fields are exposed, and only while the admin has it enabled — a
+        # disabled promo returns {"enabled": false} so the storefront draws
+        # nothing. See apps.core.app_promo.
+        "appPromo": app_promo.public_view(settings.get("appPromo")),
         # Store-wide GST, so cart/checkout can label and estimate at the same
         # rate the server charges. Configured in Admin -> Tax.
         # Brands already ship their own gstRate inside the brands list above,
