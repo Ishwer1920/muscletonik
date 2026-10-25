@@ -1494,6 +1494,259 @@ function showImportantPopup(a) {
   });
 }
 
+/* ===========================================================
+   App promotion (Admin -> App Settings). A floating promo card
+   plus an optional, independently positioned floating icon,
+   both driven by the catalogue payload
+   (MT_SHARED_CATALOG.appPromo). Shown to every visitor - guest
+   or signed in, new or returning, desktop or mobile browser -
+   on every page while the admin has it enabled. Closing the
+   card hides it only for the current page view (in memory, no
+   storage), so a refresh or navigation shows it again and the
+   floating icon reopens it. Nothing is faked: a disabled promo
+   ({enabled:false}) renders nothing and tears down any leftover
+   nodes. All CSS is injected once; positions clear the sticky
+   header, the mobile bottom-nav and its safe area so the promo
+   never covers navigation or checkout controls.
+   =========================================================== */
+var MT_APP_PROMO_DISMISSED = false;   // per page view, in memory only
+
+function mtAppPromoCfg() {
+  var c = window.MT_SHARED_CATALOG || {};
+  var cfg = c.appPromo;
+  return (cfg && typeof cfg === "object") ? cfg : {};
+}
+function mtApPos(p) {
+  return (p === "bottom-left" || p === "top-right" || p === "top-left") ? p : "bottom-right";
+}
+// Only an absolute http(s) URL or a site-relative path may become a link; the
+// server already enforces this, but the storefront re-checks before writing any
+// href so a bad value can never produce a dangerous or broken link.
+function mtApUrlSafe(u) {
+  u = String(u == null ? "" : u).trim();
+  if (!u) return "";
+  if (u.charAt(0) === "/" || /^https?:\/\//i.test(u)) return u;
+  return "";
+}
+function mtApNum(v, lo, hi, dflt) {
+  var n = Number(v);
+  if (!isFinite(n)) return dflt;
+  return Math.max(lo, Math.min(hi, Math.round(n)));
+}
+
+function mtApInjectStyle() {
+  if (document.getElementById("mt-app-promo-style")) return;
+  var el = document.createElement("style");
+  el.id = "mt-app-promo-style";
+  el.textContent = `
+    .mt-ap-card,.mt-ap-fab{box-sizing:border-box;}
+    .mt-ap-card *,.mt-ap-fab *{box-sizing:border-box;}
+    .mt-ap-card{position:fixed;z-index:140;width:var(--mt-ap-w,340px);max-width:calc(100vw - 32px);
+      max-height:calc(100vh - 48px);overflow:auto;background:var(--mt-ap-bg,#fff);color:var(--mt-ap-fg,var(--text,#222));
+      border:1px solid var(--border,#e9e9e9);border-radius:var(--mt-ap-r,18px);padding:16px;
+      box-shadow:0 24px 60px -24px rgba(17,17,17,.45),0 8px 24px -16px rgba(17,17,17,.3);
+      opacity:0;transform:translateY(16px) scale(.98);
+      transition:opacity .32s cubic-bezier(.22,1,.36,1),transform .32s cubic-bezier(.22,1,.36,1);
+      font-family:'Inter',system-ui,-apple-system,sans-serif;}
+    .mt-ap-card.mt-ap-show{opacity:1;transform:translateY(0) scale(1);}
+    .mt-ap-card.mt-ap-hide{opacity:0;transform:translateY(16px) scale(.98);}
+    .mt-ap-bottom-right{right:24px;bottom:24px;}
+    .mt-ap-bottom-left{left:24px;bottom:24px;}
+    .mt-ap-top-right{right:24px;top:88px;}
+    .mt-ap-top-left{left:24px;top:88px;}
+    .mt-ap-close{position:absolute;top:8px;right:8px;width:28px;height:28px;border:none;border-radius:50%;
+      background:rgba(17,17,17,.06);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:0;transition:background .2s;}
+    .mt-ap-close:hover{background:rgba(17,17,17,.12);}
+    .mt-ap-close svg{width:15px;height:15px;stroke:currentColor;}
+    .mt-ap-body{display:flex;gap:14px;align-items:flex-start;padding-right:22px;}
+    .mt-ap-media{flex:none;}
+    .mt-ap-media img{display:block;border-radius:14px;object-fit:cover;background:#f3f3f3;}
+    .mt-ap-text{min-width:0;flex:1;}
+    .mt-ap-title{font-family:'Poppins','Inter',sans-serif;font-weight:700;font-size:16px;line-height:1.25;color:inherit;margin:2px 0 4px;}
+    .mt-ap-desc{font-size:13px;line-height:1.45;color:inherit;opacity:.78;margin:0 0 12px;}
+    .mt-ap-actions{display:flex;flex-wrap:wrap;gap:8px;}
+    .mt-ap-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600;
+      padding:9px 16px;border-radius:999px;border:none;cursor:pointer;text-decoration:none;line-height:1;white-space:nowrap;
+      transition:transform .15s ease,background .2s ease,box-shadow .2s ease,border-color .2s ease,color .2s ease;}
+    .mt-ap-btn.primary{background:var(--primary,#ff7a00);color:#fff;box-shadow:0 10px 24px -12px rgba(255,122,0,.65);}
+    .mt-ap-btn.primary:hover{background:var(--primary-dark,#e66700);transform:translateY(-1px);}
+    .mt-ap-btn.ghost{background:transparent;color:inherit;border:1.5px solid var(--border,#e9e9e9);}
+    .mt-ap-btn.ghost:hover{border-color:var(--primary,#ff7a00);color:var(--primary,#ff7a00);}
+    .mt-ap-btn.soon{background:rgba(17,17,17,.06);color:inherit;opacity:.85;cursor:default;}
+    .mt-ap-btn[disabled]{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none;}
+    .mt-ap-fab{position:fixed;z-index:141;width:var(--mt-ap-fab,58px);height:var(--mt-ap-fab,58px);border:none;border-radius:50%;
+      cursor:pointer;padding:0;overflow:hidden;background:var(--primary,#ff7a00);box-shadow:0 14px 30px -10px rgba(17,17,17,.5);
+      opacity:0;transform:translateY(12px) scale(.9);transition:opacity .3s ease,transform .3s ease,box-shadow .2s ease;
+      display:flex;align-items:center;justify-content:center;}
+    .mt-ap-fab.mt-ap-show{opacity:1;transform:translateY(0) scale(1);}
+    .mt-ap-fab:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 18px 36px -10px rgba(17,17,17,.55);}
+    .mt-ap-fab img{width:100%;height:100%;object-fit:cover;display:block;}
+    .mt-ap-fab .mt-ap-fab-glyph{color:#fff;display:flex;align-items:center;justify-content:center;}
+    .mt-ap-fab .mt-ap-fab-glyph svg{width:50%;height:50%;stroke:#fff;}
+    @media (max-width:768px){
+      .mt-ap-card{width:min(var(--mt-ap-w,340px),calc(100vw - 24px));padding:14px;}
+      .mt-ap-bottom-right,.mt-ap-bottom-left{bottom:calc(84px + env(safe-area-inset-bottom,0px));}
+      .mt-ap-bottom-right{right:12px;} .mt-ap-bottom-left{left:12px;}
+      .mt-ap-top-right,.mt-ap-top-left{top:calc(70px + env(safe-area-inset-top,0px));}
+      .mt-ap-top-right{right:12px;} .mt-ap-top-left{left:12px;}
+    }
+    @media (prefers-reduced-motion:reduce){
+      .mt-ap-card,.mt-ap-fab{transition:opacity .2s ease;transform:none !important;}
+    }`;
+  document.head.appendChild(el);
+}
+
+function mtAppPromoTeardown() {
+  ["mtAppPromoCard", "mtAppPromoIcon"].forEach(function (id) {
+    var n = document.getElementById(id);
+    if (n && n.parentNode) n.parentNode.removeChild(n);
+  });
+}
+
+function mtApDownloadBtn(cfg) {
+  var url = mtApUrlSafe(cfg.downloadUrl);
+  var label = escapeHtml(cfg.buttonText || "Download App");
+  if (url) {
+    return '<a class="mt-ap-btn primary" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + label + "</a>";
+  }
+  // No link configured yet: a configurable "coming soon" pill, or - if that was
+  // cleared too - a plainly disabled button. Never a broken/empty link.
+  var soon = String(cfg.comingSoonText || "").trim();
+  if (soon) return '<span class="mt-ap-btn soon" role="status">' + escapeHtml(soon) + "</span>";
+  return '<button class="mt-ap-btn primary" type="button" disabled>' + label + "</button>";
+}
+
+function mtApSecondaryBtn(cfg) {
+  if (cfg.secondaryEnabled !== true) return "";
+  var label = String(cfg.secondaryLabel || "").trim();
+  if (!label) return "";
+  var url = mtApUrlSafe(cfg.secondaryUrl);
+  if (url) return '<a class="mt-ap-btn ghost" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + "</a>";
+  return '<button class="mt-ap-btn ghost" type="button" disabled>' + escapeHtml(label) + "</button>";
+}
+
+function mtAppPromoHideCard(card) {
+  card.classList.remove("mt-ap-show");
+  card.classList.add("mt-ap-hide");
+  setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); }, 360);
+}
+function mtAppPromoHideIcon(fab) {
+  fab.classList.remove("mt-ap-show");
+  setTimeout(function () { if (fab.parentNode) fab.parentNode.removeChild(fab); }, 320);
+}
+
+function mtAppPromoRenderCard(cfg, corner) {
+  if (document.getElementById("mtAppPromoCard")) return;
+  var card = document.createElement("div");
+  card.id = "mtAppPromoCard";
+  card.className = "mt-ap-card mt-ap-" + corner;
+  card.setAttribute("role", "dialog");
+  card.setAttribute("aria-label", cfg.appName ? ("Get the " + cfg.appName + " app") : "App promotion");
+
+  var styles = [
+    "--mt-ap-w:" + mtApNum(cfg.cardWidth, 240, 480, 340) + "px",
+    "--mt-ap-r:" + mtApNum(cfg.borderRadius, 0, 40, 18) + "px"
+  ];
+  var ch = mtApNum(cfg.cardHeight, 0, 600, 0);
+  if (ch > 0) styles.push("height:" + ch + "px");
+  if (cfg.bgColor) styles.push("--mt-ap-bg:" + cfg.bgColor);
+  if (cfg.textColor) styles.push("--mt-ap-fg:" + cfg.textColor);
+  card.setAttribute("style", styles.join(";"));
+
+  var iconUrl = mtApUrlSafe(cfg.icon);
+  var iw = mtApNum(cfg.imageWidth, 24, 160, 56);
+  var ih = mtApNum(cfg.imageHeight, 24, 160, 56);
+  var media = iconUrl
+    ? '<div class="mt-ap-media"><img src="' + escapeHtml(iconUrl) + '" alt="' + escapeHtml(cfg.appName || "App") +
+      '" width="' + iw + '" height="' + ih + '" style="width:' + iw + "px;height:" + ih + 'px;" loading="lazy"></div>'
+    : "";
+
+  card.innerHTML =
+    '<button class="mt-ap-close" type="button" aria-label="Close">' + icon("x", 15) + "</button>" +
+    '<div class="mt-ap-body">' + media +
+      '<div class="mt-ap-text">' +
+        (cfg.title ? '<div class="mt-ap-title">' + escapeHtml(cfg.title) + "</div>" : "") +
+        (cfg.description ? '<div class="mt-ap-desc">' + escapeHtml(cfg.description) + "</div>" : "") +
+        '<div class="mt-ap-actions">' + mtApDownloadBtn(cfg) + mtApSecondaryBtn(cfg) + "</div>" +
+      "</div>" +
+    "</div>";
+
+  document.body.appendChild(card);
+  card.querySelector(".mt-ap-close").addEventListener("click", function () {
+    MT_APP_PROMO_DISMISSED = true;
+    mtAppPromoHideCard(card);
+    // Bring the floating icon back (when enabled) so the card can be reopened.
+    var now = mtAppPromoCfg();
+    if (now.iconEnabled !== false && !document.getElementById("mtAppPromoIcon")) {
+      mtAppPromoRenderIcon(now, mtApPos(now.iconPosition));
+    }
+  });
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () { card.classList.add("mt-ap-show"); });
+  });
+}
+
+function mtAppPromoRenderIcon(cfg, corner) {
+  if (document.getElementById("mtAppPromoIcon")) return;
+  var fab = document.createElement("button");
+  fab.id = "mtAppPromoIcon";
+  fab.type = "button";
+  fab.className = "mt-ap-fab mt-ap-" + corner;
+  fab.setAttribute("aria-label", "Open " + (cfg.appName || "app") + " promotion");
+  fab.setAttribute("style", "--mt-ap-fab:" + mtApNum(cfg.iconSize, 40, 120, 58) + "px");
+  var iconUrl = mtApUrlSafe(cfg.icon);
+  fab.innerHTML = iconUrl
+    ? '<img src="' + escapeHtml(iconUrl) + '" alt="' + escapeHtml(cfg.appName || "App") + '" loading="lazy">'
+    : '<span class="mt-ap-fab-glyph">' + icon("cart", 24) + "</span>";
+  fab.addEventListener("click", function () {
+    var now = mtAppPromoCfg();
+    var dl = mtApUrlSafe(now.downloadUrl);
+    // Direct-download mode: jump straight to the store link, but only when the
+    // admin turned it on AND a valid link exists. Otherwise open the card.
+    if (now.iconDirectDownload === true && dl) {
+      window.open(dl, "_blank", "noopener");
+      return;
+    }
+    MT_APP_PROMO_DISMISSED = false;
+    mtAppPromoHideIcon(fab);
+    mtAppPromoRenderCard(now, mtApPos(now.position));
+  });
+  document.body.appendChild(fab);
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () { fab.classList.add("mt-ap-show"); });
+  });
+}
+
+function initAppPromo() {
+  // The storefront's core.js is also pulled into some admin pages; the promo is
+  // a public-site feature only and must never surface inside the admin console.
+  if (document.body && document.body.classList.contains("admin")) { mtAppPromoTeardown(); return; }
+  var cfg = mtAppPromoCfg();
+  // Master toggle gates everything. A disabled (or unset) promo removes any
+  // card/icon a previous config may have left behind.
+  if (!cfg || cfg.enabled !== true) { mtAppPromoTeardown(); return; }
+
+  var isMobile = !!(window.matchMedia && window.matchMedia("(max-width:768px)").matches);
+  var deviceOk = isMobile ? (cfg.showOnMobile !== false) : (cfg.showOnDesktop !== false);
+  if (!deviceOk) { mtAppPromoTeardown(); return; }
+
+  mtApInjectStyle();
+  // Re-render cleanly on each call (config refresh, or the viewport crossing
+  // the mobile breakpoint) while keeping the in-memory dismissal intact.
+  mtAppPromoTeardown();
+
+  var cardCorner = mtApPos(cfg.position);
+  var iconCorner = mtApPos(cfg.iconPosition);
+  var iconOn = cfg.iconEnabled !== false;
+
+  if (!MT_APP_PROMO_DISMISSED) mtAppPromoRenderCard(cfg, cardCorner);
+  // Show the icon when enabled and either the card is closed or it sits in a
+  // different corner - so the icon and card never stack on top of each other.
+  if (iconOn && (MT_APP_PROMO_DISMISSED || iconCorner !== cardCorner)) {
+    mtAppPromoRenderIcon(cfg, iconCorner);
+  }
+}
+
 function footerHTML() {
   const content = (window.MT_SHARED_CATALOG && window.MT_SHARED_CATALOG.siteContent) || SITE_CONTENT || {};
   const footerNote = content.footer?.note || "Premium supplements, direct to your routine, with a clean shopping experience built for fast buying decisions.";
@@ -2021,4 +2274,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // After the catalogue (and any preloader) has settled, surface an Important
   // Alert popup if one is published and hasn't been shown in this browser yet.
   setTimeout(initImportantAlert, 900);
+  // Mobile-app promotion (floating card + icon) from Admin -> App Settings.
+  // Rendered once the catalogue has resolved so it reflects saved settings, and
+  // re-rendered when the viewport crosses the mobile breakpoint.
+  initAppPromo();
+  if (!window.__mtAppPromoResize) {
+    window.__mtAppPromoResize = true;
+    let apT = null;
+    window.addEventListener("resize", () => { clearTimeout(apT); apT = setTimeout(initAppPromo, 250); });
+  }
 });

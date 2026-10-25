@@ -131,6 +131,10 @@ let BANNERS = [];
 let ALERTS = [];
 // Festival Lights config (the draped navbar garland), stored as "rgbLight".
 let RGB_LIGHT = {};
+// Mobile-app promotion (Admin -> App Settings), served in the catalogue payload
+// as "appPromo". {enabled:false} (or {}) means draw nothing. core.js renders the
+// floating card + icon from this on every page.
+let APP_PROMO = {};
 
 // How the hero slideshow behaves — set in Admin -> Slideshow, mirrored from
 // the API. These defaults only apply before the catalogue has loaded.
@@ -274,6 +278,7 @@ async function hydrateCatalogFromApi() {
     if (payload && Array.isArray(payload.banners)) BANNERS = payload.banners;
     if (payload && Array.isArray(payload.alerts)) ALERTS = payload.alerts;
     if (payload && payload.rgbLight && typeof payload.rgbLight === "object") RGB_LIGHT = payload.rgbLight;
+    if (payload && payload.appPromo && typeof payload.appPromo === "object") APP_PROMO = payload.appPromo;
     if (payload && Array.isArray(payload.combos)) COMBOS = payload.combos;
     if (payload && payload.slideshowSettings && typeof payload.slideshowSettings === "object") {
       SLIDESHOW_SETTINGS = payload.slideshowSettings;
@@ -520,6 +525,7 @@ if (typeof window !== "undefined") {
     get banners() { return BANNERS; },
     get alerts() { return ALERTS; },
     get rgbLight() { return RGB_LIGHT; },
+    get appPromo() { return APP_PROMO; },
     get slideshowSettings() { return SLIDESHOW_SETTINGS; },
     get homepageSections() { return HOMEPAGE_SECTIONS; },
     get homepageOrder() { return HOMEPAGE_ORDER; },
