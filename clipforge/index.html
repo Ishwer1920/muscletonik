@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClipForge — Auto Video Editor</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◆</span>
+      <span>ClipForge</span>
+      <small>auto video editor</small>
+    </div>
+    <div class="topbar-note">100% in your browser · your clips never upload anywhere</div>
+  </header>
+
+  <main class="layout">
+    <!-- LEFT: controls -->
+    <section class="panel controls">
+      <h2 class="step"><span>1</span> Add your clips</h2>
+
+      <label id="drop" class="dropzone" for="fileInput">
+        <div class="dz-icon">⬆</div>
+        <div class="dz-text"><strong>Drop video clips here</strong><br />or click to browse</div>
+        <div class="dz-sub">MP4 / MOV / WebM · a few short clips work best</div>
+        <input id="fileInput" type="file" accept="video/*" multiple hidden />
+      </label>
+
+      <ul id="clipList" class="clip-list"></ul>
+
+      <h2 class="step"><span>2</span> Pick a style</h2>
+      <div id="styleGrid" class="style-grid"></div>
+
+      <h2 class="step"><span>3</span> Format &amp; options</h2>
+
+      <div class="field">
+        <label>Aspect ratio</label>
+        <div id="ratioGroup" class="chip-group"></div>
+      </div>
+
+      <div class="field">
+        <label>Quality</label>
+        <div id="qualityGroup" class="chip-group"></div>
+      </div>
+
+      <div class="field">
+        <label>Title text <span class="muted">(optional, shown at the start)</span></label>
+        <input id="titleText" type="text" maxlength="60" placeholder="e.g. Summer Trip 2026" />
+      </div>
+
+      <div class="field">
+        <label>Background music <span class="muted">(optional)</span></label>
+        <label for="musicInput" class="file-btn">🎵 <span id="musicName">Choose an audio file</span></label>
+        <input id="musicInput" type="file" accept="audio/*" hidden />
+      </div>
+
+      <button id="renderBtn" class="render-btn" disabled>✨ Auto-Edit my video</button>
+      <p id="hint" class="hint">Add at least one clip to start.</p>
+    </section>
+
+    <!-- RIGHT: output -->
+    <section class="panel output">
+      <h2 class="step"><span>4</span> Result</h2>
+
+      <div id="stage" class="stage">
+        <div id="placeholder" class="placeholder">
+          <div class="ph-icon">🎬</div>
+          <p>Your finished video will appear here.</p>
+        </div>
+        <video id="result" controls playsinline hidden></video>
+      </div>
+
+      <div id="progressWrap" class="progress-wrap" hidden>
+        <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+        <div id="progressLabel" class="progress-label">Starting engine…</div>
+      </div>
+
+      <a id="downloadBtn" class="download-btn" hidden download="clipforge-edit.mp4">⬇ Download video</a>
+
+      <details class="log-box">
+        <summary>Engine log</summary>
+        <pre id="log"></pre>
+      </details>
+    </section>
+  </main>
+
+  <!-- ffmpeg.wasm (single-thread build — no special server headers required) -->
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+  <script src="js/styles.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
