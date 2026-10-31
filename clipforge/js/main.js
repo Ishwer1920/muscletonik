@@ -195,6 +195,7 @@
       throw new Error("Editing engine failed to load. Check your internet connection and reload the page.");
     }
     const { FFmpeg } = FFmpegWASM;
+    const { toBlobURL } = FFmpegUtil;
     const ff = new FFmpeg();
     ff.on("log", ({ message }) => logLine(message));
     ff.on("progress", ({ progress }) => {
@@ -203,8 +204,26 @@
       els.progressLabel.textContent = `Rendering… ${pct}%`;
     });
     els.progressLabel.textContent = "Loading the editing engine (first run downloads ~30 MB)…";
+
+    // Load the engine, its worker, and the wasm core as same-origin blob URLs.
+    // Fetching them to blobs is what avoids the "Worker cannot be accessed from
+    // origin" cross-origin error — the browser refuses to spawn a worker straight
+    // from a CDN URL, but a blob: URL is same-origin.
+    const FF = "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd";
     const core = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd";
-    await ff.load({ coreURL: `${core}/ffmpeg-core.js`, wasmURL: `${core}/ffmpeg-core.wasm` });
+    try {
+      const [classWorkerURL, coreURL, wasmURL] = await Promise.all([
+        toBlobURL(`${FF}/814.ffmpeg.js`, "text/javascript"),
+        toBlobURL(`${core}/ffmpeg-core.js`, "text/javascript"),
+        toBlobURL(`${core}/ffmpeg-core.wasm`, "application/wasm"),
+      ]);
+      await ff.load({ classWorkerURL, coreURL, wasmURL });
+    } catch (e) {
+      throw new Error(
+        "Couldn't load the editing engine from the CDN. Check your internet " +
+          "connection and reload. (" + (e && e.message ? e.message : e) + ")"
+      );
+    }
     state.ffmpeg = ff;
     state.loaded = true;
   }
