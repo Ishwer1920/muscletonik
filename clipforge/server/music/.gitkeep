@@ -1,0 +1,6 @@
+# Drop royalty-free audio tracks (.mp3 / .wav / .m4a) in this folder.
+# The AI "Auto music / mood" feature will pick the best match from whatever is here.
+# Filenames become track names, so name them descriptively, e.g.:
+#   upbeat-summer-pop.mp3
+#   cinematic-emotional.mp3
+#   lofi-chill-beat.mp3

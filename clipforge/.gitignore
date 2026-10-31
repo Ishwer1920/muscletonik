@@ -1,0 +1,14 @@
+# dependencies
+server/node_modules/
+node_modules/
+
+# secrets — never commit real API keys
+server/.env
+.env
+
+# OS junk
+.DS_Store
+
+# user-added music (keep the folder, not the tracks)
+server/music/*
+!server/music/.gitkeep

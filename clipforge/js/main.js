@@ -221,6 +221,72 @@
     return { start: +start.toFixed(3), end: +(start + seg).toFixed(3), seg };
   }
 
+  // Use AI-chosen highlight for this clip if available, else fall back to the style rule.
+  function resolveSegment(clip, style) {
+    const ai = window.CLIPFORGE_AI?.state?.highlights?.[clip.id];
+    if (ai && isFinite(ai.start) && isFinite(ai.end)) {
+      const dur = clip.duration || ai.end;
+      let start = Math.max(0, Math.min(ai.start, dur));
+      let end = Math.min(ai.end, dur || ai.end);
+      if (end - start >= 0.3) {
+        return { start: +start.toFixed(3), end: +end.toFixed(3), seg: +(end - start).toFixed(3) };
+      }
+    }
+    return segmentFor(clip.duration, style);
+  }
+
+  // Render one caption line to a full-frame transparent PNG (overlaid via ffmpeg).
+  async function makeCaptionPng(text, w, h) {
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    const fontSize = Math.round(w * 0.055);
+    ctx.font = `800 ${fontSize}px Inter, Arial, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const maxW = w * 0.86;
+    const words = text.trim().split(/\s+/);
+    const lines = [];
+    let line = "";
+    for (const word of words) {
+      const test = line ? line + " " + word : word;
+      if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+
+    const lineH = fontSize * 1.25;
+    const baseY = h * 0.8 - (lines.length - 1) * lineH;
+    lines.forEach((ln, i) => {
+      const y = baseY + i * lineH;
+      const tw = ctx.measureText(ln).width;
+      // pill background
+      ctx.fillStyle = "rgba(8,10,16,0.62)";
+      roundRect(ctx, (w - tw) / 2 - fontSize * 0.4, y - lineH * 0.55, tw + fontSize * 0.8, lineH * 1.05, fontSize * 0.25);
+      ctx.fill();
+      // text
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "rgba(0,0,0,0.75)";
+      ctx.shadowBlur = fontSize * 0.18;
+      ctx.fillText(ln, w / 2, y);
+      ctx.shadowBlur = 0;
+    });
+
+    const blob = await new Promise((res) => c.toBlob(res, "image/png"));
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
   async function render() {
     if (state.busy || state.clips.length === 0) return;
     state.busy = true;
@@ -243,45 +309,72 @@
       await ensureFfmpeg();
       const ff = state.ffmpeg;
       const { fetchFile } = FFmpegUtil;
+      const ai = window.CLIPFORGE_AI ? window.CLIPFORGE_AI.state : {};
+      const cleanup = [];
 
-      // write input clips
-      const inNames = [];
+      const args = [];
+      const filters = [];
+      let idx = 0;
+
+      // ---- video clips ----
+      const segs = [];
       let total = 0;
       for (let i = 0; i < state.clips.length; i++) {
         const clip = state.clips[i];
         const name = `in${i}_${sanitize(clip.name)}`.slice(0, 40) + guessExt(clip.name);
         await ff.writeFile(name, await fetchFile(clip.file));
-        inNames.push(name);
-        total += segmentFor(clip.duration, style).seg;
+        cleanup.push(name);
+        args.push("-i", name);
+        const s = resolveSegment(clip, style);
+        segs.push(s);
+        total += s.seg;
+        idx++;
       }
       total = +total.toFixed(3);
 
-      // optional music
-      let musicName = null;
-      if (state.musicFile) {
-        musicName = "music" + guessExt(state.musicFile.name, ".mp3");
-        await ff.writeFile(musicName, await fetchFile(state.musicFile));
+      // ---- audio sources: voiceover (AI) and/or music (manual or AI) ----
+      let voIdx = -1, mIdx = -1;
+      if (ai.voiceoverBlob) {
+        await ff.writeFile("vo.mp3", await fetchFile(ai.voiceoverBlob));
+        cleanup.push("vo.mp3");
+        args.push("-i", "vo.mp3");
+        voIdx = idx++;
+      }
+      const musicSource = state.musicFile || (ai.music && ai.music.url) || null;
+      if (musicSource) {
+        const mName = "music" + guessExt(state.musicFile ? state.musicFile.name : ai.music.url, ".mp3");
+        await ff.writeFile(mName, await fetchFile(musicSource));
+        cleanup.push(mName);
+        args.push("-i", mName);
+        mIdx = idx++;
       }
 
-      // optional title overlay
-      let titleName = null;
+      // ---- title overlay (image input) ----
+      let titleIdx = -1;
       const titleText = els.titleText.value.trim();
       const titleDur = Math.min(2.5, total);
       if (titleText) {
-        titleName = "title.png";
-        await ff.writeFile(titleName, await makeTitlePng(titleText, W, H));
+        await ff.writeFile("title.png", await makeTitlePng(titleText, W, H));
+        cleanup.push("title.png");
+        args.push("-loop", "1", "-i", "title.png");
+        titleIdx = idx++;
       }
 
-      // ---- build filter_complex ----
-      const args = [];
-      inNames.forEach((n) => args.push("-i", n));
-      if (musicName) args.push("-i", musicName);
-      if (titleName) args.push("-loop", "1", "-i", titleName);
+      // ---- caption overlays (one image per segment, timed to final timeline) ----
+      const caps = (ai.captions || []).filter((c) => c.text && c.end > c.start && c.start < total);
+      const capIdx = [];
+      for (let k = 0; k < caps.length; k++) {
+        const fn = `cap${k}.png`;
+        await ff.writeFile(fn, await makeCaptionPng(caps[k].text, W, H));
+        cleanup.push(fn);
+        args.push("-loop", "1", "-i", fn);
+        capIdx.push(idx++);
+      }
 
-      const filters = [];
+      // ---- video filter chain ----
       const vlabels = [];
       state.clips.forEach((clip, i) => {
-        const { start, end } = segmentFor(clip.duration, style);
+        const { start, end } = segs[i];
         filters.push(
           `[${i}:v]trim=${start}:${end},setpts=PTS-STARTPTS,` +
           `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},` +
@@ -292,19 +385,37 @@
       filters.push(`${vlabels.join("")}concat=n=${state.clips.length}:v=1:a=0[cv]`);
 
       let vOut = "[cv]";
-      if (titleName) {
-        const titleIdx = state.clips.length + (musicName ? 1 : 0);
-        filters.push(
-          `[cv][${titleIdx}:v]overlay=0:0:enable='between(t,0,${titleDur.toFixed(2)})'[vt]`
-        );
-        vOut = "[vt]";
+      let n = 0;
+      if (titleIdx >= 0) {
+        const o = `[ov${n++}]`;
+        filters.push(`${vOut}[${titleIdx}:v]overlay=0:0:enable='between(t,0,${titleDur.toFixed(2)})'${o}`);
+        vOut = o;
       }
+      capIdx.forEach((ci, k) => {
+        const s = Math.max(0, caps[k].start).toFixed(2);
+        const e = Math.min(total, caps[k].end).toFixed(2);
+        const o = `[ov${n++}]`;
+        filters.push(`${vOut}[${ci}:v]overlay=0:0:enable='between(t,${s},${e})'${o}`);
+        vOut = o;
+      });
 
+      // ---- audio filter chain ----
       let aOut = null;
-      if (musicName) {
-        const mIdx = state.clips.length;
-        filters.push(`[${mIdx}:a]atrim=0:${total},asetpts=PTS-STARTPTS[aud]`);
+      const aLabels = [];
+      if (voIdx >= 0) {
+        filters.push(`[${voIdx}:a]atrim=0:${total},asetpts=PTS-STARTPTS,aresample=44100[vo]`);
+        aLabels.push("[vo]");
+      }
+      if (mIdx >= 0) {
+        const vol = voIdx >= 0 ? 0.22 : 0.9; // duck music under narration
+        filters.push(`[${mIdx}:a]atrim=0:${total},asetpts=PTS-STARTPTS,aresample=44100,volume=${vol}[mu]`);
+        aLabels.push("[mu]");
+      }
+      if (aLabels.length === 2) {
+        filters.push(`${aLabels.join("")}amix=inputs=2:duration=first:normalize=0[aud]`);
         aOut = "[aud]";
+      } else if (aLabels.length === 1) {
+        aOut = aLabels[0];
       }
 
       args.push("-filter_complex", filters.join(";"));
@@ -315,6 +426,12 @@
       if (aOut) args.push("-c:a", "aac", "-b:a", "128k");
       args.push("-movflags", "+faststart", "-y", "output.mp4");
 
+      const bits = [];
+      if (voIdx >= 0) bits.push("voiceover");
+      if (mIdx >= 0) bits.push("music");
+      if (caps.length) bits.push(`${caps.length} captions`);
+      if (window.CLIPFORGE_AI?.state?.highlights) bits.push("AI highlights");
+      logLine("features: " + (bits.length ? bits.join(", ") : "basic auto-edit"));
       logLine("$ ffmpeg " + args.join(" "));
       els.progressLabel.textContent = "Rendering… 0%";
       await ff.exec(args);
@@ -331,9 +448,8 @@
 
       // cleanup FS
       try {
-        for (const n of inNames) await ff.deleteFile(n);
-        if (musicName) await ff.deleteFile(musicName);
-        if (titleName) await ff.deleteFile(titleName);
+        for (const f of cleanup) await ff.deleteFile(f);
+        await ff.deleteFile("output.mp4");
       } catch (_) {}
     } catch (err) {
       console.error(err);
@@ -371,6 +487,16 @@
     };
 
     els.renderBtn.onclick = render;
+
+    // expose hooks for the AI Studio (js/ai.js)
+    if (window.CLIPFORGE_AI) {
+      window.CLIPFORGE_AI.clipsProvider = () =>
+        state.clips.map((c) => ({ id: c.id, name: c.name, duration: c.duration }));
+    }
+    window.CLIPFORGE_CURRENT_SEGDUR = () =>
+      (CLIPFORGE_STYLES.find((s) => s.id === state.styleId) || { segDur: 2.5 }).segDur;
+    window.CLIPFORGE_CURRENT_STYLE = () => state.styleId;
+
     refreshRenderBtn();
   }
 

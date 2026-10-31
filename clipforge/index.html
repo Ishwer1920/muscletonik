@@ -56,6 +56,76 @@
         <input id="musicInput" type="file" accept="audio/*" hidden />
       </div>
 
+      <h2 class="step"><span>AI</span> AI Studio</h2>
+      <div id="aiBanner" class="ai-banner" hidden></div>
+
+      <div id="aiStudio" class="ai-studio">
+        <!-- Script -->
+        <details class="ai-tool" data-feat="script">
+          <summary>✍️ AI Script <span class="ai-lock" hidden>needs Claude key</span></summary>
+          <div class="ai-body">
+            <input id="scriptTopic" type="text" placeholder="Topic — e.g. my trip to Tokyo" />
+            <div class="ai-row">
+              <select id="scriptTone">
+                <option value="energetic">Energetic</option>
+                <option value="chill">Chill</option>
+                <option value="cinematic">Cinematic</option>
+                <option value="funny">Funny</option>
+                <option value="inspiring">Inspiring</option>
+              </select>
+              <input id="scriptSecs" type="number" min="5" max="120" value="30" title="Target length (sec)" />
+              <button id="scriptBtn" class="ai-btn" type="button">Generate</button>
+            </div>
+            <textarea id="scriptOut" rows="4" placeholder="Your AI script appears here (editable)…"></textarea>
+          </div>
+        </details>
+
+        <!-- Voiceover -->
+        <details class="ai-tool" data-feat="voiceover">
+          <summary>🎙️ Voiceover <span class="ai-lock" hidden>needs OpenAI key</span></summary>
+          <div class="ai-body">
+            <div class="ai-row">
+              <select id="voiceSel"></select>
+              <button id="voiceBtn" class="ai-btn" type="button">Generate voiceover</button>
+            </div>
+            <audio id="voicePreview" controls hidden></audio>
+            <p class="ai-note">Uses the script above (or type your own there). Becomes the video's narration track.</p>
+          </div>
+        </details>
+
+        <!-- Captions -->
+        <details class="ai-tool" data-feat="captions">
+          <summary>💬 Auto captions <span class="ai-lock" hidden>needs OpenAI key</span></summary>
+          <div class="ai-body">
+            <button id="capBtn" class="ai-btn" type="button" disabled>Generate captions from voiceover</button>
+            <p class="ai-note">Transcribes your voiceover and burns word-timed subtitles onto the video. Generate a voiceover first.</p>
+            <div id="capStatus" class="ai-status"></div>
+          </div>
+        </details>
+
+        <!-- Highlights -->
+        <details class="ai-tool" data-feat="highlights">
+          <summary>🎯 Smart highlights <span class="ai-lock" hidden>needs Claude key</span></summary>
+          <div class="ai-body">
+            <button id="hlBtn" class="ai-btn" type="button">Let AI pick the best moments</button>
+            <p class="ai-note">AI chooses the best segment of each clip instead of fixed-time cuts.</p>
+            <div id="hlStatus" class="ai-status"></div>
+          </div>
+        </details>
+
+        <!-- Music mood -->
+        <details class="ai-tool" data-feat="music">
+          <summary>🎵 Auto music <span class="ai-lock" hidden>needs Claude key</span></summary>
+          <div class="ai-body">
+            <div class="ai-row">
+              <input id="musicVibe" type="text" placeholder="Describe the vibe — e.g. upbeat travel" />
+              <button id="musicBtn" class="ai-btn" type="button">Match</button>
+            </div>
+            <div id="musicStatus" class="ai-status"></div>
+          </div>
+        </details>
+      </div>
+
       <button id="renderBtn" class="render-btn" disabled>✨ Auto-Edit my video</button>
       <p id="hint" class="hint">Add at least one clip to start.</p>
     </section>
@@ -90,6 +160,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
   <script src="js/styles.js"></script>
+  <script src="js/ai.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

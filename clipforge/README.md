@@ -1,61 +1,114 @@
-# ClipForge — Auto Video Editor
+# ClipForge — AI Auto Video Editor
 
-Upload a few raw clips, pick a style, hit one button, and ClipForge cuts them
-into a finished video — automatically. It runs **100% in your browser**: your
-clips are never uploaded to any server.
+Upload a few raw clips, pick a style, and ClipForge cuts them into a finished
+video — automatically. The video processing runs **100% in your browser**
+(your clips are never uploaded). An optional **AI backend** adds scripts,
+voiceover, auto-captions, smart highlight picking, and auto music.
 
-## What it does
+---
 
-- **Auto-edit:** trims each clip to a style-based length and stitches them together.
-- **Styles:** Fast Cuts, Highlights, Montage, Vlog (each controls segment length & pacing).
-- **Formats:** 9:16 (Reels), 1:1 (Square), 16:9 (Wide) at 720p or 1080p.
-- **Background music:** drop in any audio file; it's laid over the whole edit.
-- **Title card:** optional text shown at the start of the video.
-- **Export:** download the result as an MP4.
+## Two ways to run it
 
-Powered by [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) — a real
-video-processing engine compiled to run in the browser.
-
-## How to run it
-
-It needs to be served over `http://` (not opened as a `file://`), because the
-editing engine loads as a web module.
+### A) Core editor only (no AI, no keys, nothing to install)
 
 ```bash
 cd clipforge
 python3 serve.py
 ```
+Open **http://localhost:8000**. You get the full auto-editor: multi-clip upload,
+styles, aspect ratios, title card, background music, MP4 export.
 
-Then open **http://localhost:8000** in Chrome, Edge, or Firefox.
+### B) Full version with AI features (recommended)
 
-Any static server works — e.g. `npx serve` — if you'd rather not use Python.
+Needs [Node.js](https://nodejs.org) 18+.
 
-## How to use it
+```bash
+cd clipforge/server
+npm install
+cp .env.example .env      # then open .env and add your API key(s)
+npm start
+```
+Open the URL it prints (**http://localhost:8787**). The backend serves the app
+*and* powers the AI tools. Your API keys stay on the server, never in the browser.
 
-1. **Drop in your clips** (MP4 / MOV / WebM). 2–8 short clips renders fastest.
-2. **Pick a style.**
-3. **Choose aspect ratio & quality**, and optionally add a **title** and **music**.
-4. Click **✨ Auto-Edit my video**, wait for the progress bar, then **download**.
+---
 
-> **First render** downloads the ~30 MB engine once (then it's cached).
-> Rendering happens on your own machine, so bigger/longer clips take longer —
-> start small to get a feel for it.
+## Features
 
-## Notes & limits
+### Core auto-editor (browser, no keys)
+- **Multi-clip upload** — drag & drop, reorder, remove, thumbnails.
+- **Styles** — Fast Cuts, Highlights, Montage, Vlog (control segment length & pacing).
+- **Formats** — 9:16 (Reels), 1:1 (Square), 16:9 (Wide) at 720p / 1080p.
+- **Title card** + **background music**.
+- **MP4 export**, powered by [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm).
 
-- Single-threaded engine is used for maximum browser compatibility (no special
-  hosting required). For much faster renders you can switch to the multi-threaded
-  core later — `serve.py` already sends the headers it needs.
-- Everything is local: no accounts, no uploads, no backend.
+### AI Studio (needs the Node backend + keys)
+
+| Tool | What it does | Needs |
+|------|--------------|-------|
+| ✍️ **AI Script** | Writes punchy narration + a title from a topic | Anthropic (Claude) key |
+| 🎙️ **Voiceover** | Turns the script into a narration track | OpenAI key |
+| 💬 **Auto captions** | Transcribes the voiceover & burns word-timed subtitles | OpenAI key |
+| 🎯 **Smart highlights** | AI picks the best moment of each clip | Anthropic key |
+| 🎵 **Auto music** | Recommends a mood & picks a track from your library | Anthropic key |
+
+> **Why two providers?** Claude handles the text/creative work (scripts,
+> highlight picking, music mood). Anthropic has no audio models, so
+> speech-to-text (captions) and text-to-speech (voiceover) use OpenAI.
+> You only need the key(s) for the features you want.
+
+The default Claude model is **`claude-opus-5-5`** (change it in `.env`).
+
+---
+
+## The AI workflow (a typical run)
+
+1. Drop in your clips.
+2. **AI Script** → type a topic → get a title + narration.
+3. **Voiceover** → pick a voice → narration becomes the audio track.
+4. **Auto captions** → subtitles get burned on, synced to the voiceover.
+5. **Smart highlights** → AI picks the best moment of each clip.
+6. **Auto music** → describe the vibe → a track is laid under the narration (ducked).
+7. **✨ Auto-Edit my video** → download the MP4.
+
+Every AI step is optional — use any combination, or none.
+
+---
+
+## Adding music for the "Auto music" feature
+
+Drop royalty-free `.mp3` / `.wav` files into `clipforge/server/music/`. The AI
+picks the best match by filename, so name them descriptively
+(`upbeat-summer-pop.mp3`, `cinematic-emotional.mp3`). If the folder is empty,
+the AI just recommends a mood + search terms.
+
+---
 
 ## Project layout
 
 ```
 clipforge/
-├── index.html        # UI
-├── css/style.css     # styling
-├── js/styles.js      # editing style/format presets
-├── js/main.js        # app logic + ffmpeg pipeline
-├── serve.py          # tiny local static server
-└── README.md
+├── index.html          # UI
+├── css/style.css       # styling
+├── js/styles.js        # editing style/format presets
+├── js/ai.js            # AI Studio frontend (talks to the backend)
+├── js/main.js          # core app + ffmpeg render pipeline
+├── serve.py            # tiny static server (core editor, no AI)
+└── server/             # AI backend (Node + Express)
+    ├── server.js       # serves the app + /api/* endpoints
+    ├── lib/anthropic.js# Claude: scripts, highlights, music mood
+    ├── lib/openai.js   # OpenAI: captions (STT) + voiceover (TTS)
+    ├── music/          # drop your royalty-free tracks here
+    └── .env.example    # copy to .env and add keys
 ```
+
+---
+
+## Notes & limits
+
+- Rendering happens **on your machine** in the browser, so long/large clips are
+  slower. Start with 2–8 short clips.
+- First render downloads the ~30 MB engine once (then cached).
+- Captions currently sync to the **voiceover** (generate a voiceover first).
+- `.env` and `node_modules/` are gitignored — your keys never get committed.
+- AI calls cost money on your own API accounts; short scripts/voiceovers are cheap.
